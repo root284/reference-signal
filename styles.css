@@ -372,6 +372,8 @@ select {
   overflow: hidden;
   border-radius: 6px;
   background: linear-gradient(135deg, #273447, #2357d6 48%, #d06b43);
+  background-position: center;
+  background-size: cover;
 }
 
 .thumb span {

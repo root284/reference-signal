@@ -103,7 +103,6 @@ document.querySelectorAll(".segment").forEach((button) => {
     document.querySelectorAll(".segment").forEach((item) => item.classList.remove("is-active"));
     button.classList.add("is-active");
     selectedType = button.dataset.type;
-    runAnalysis();
   });
 });
 
@@ -113,8 +112,6 @@ loadSampleButton.addEventListener("click", () => {
 });
 
 analyzeButton.addEventListener("click", runAnalysis);
-periodFilter.addEventListener("change", runAnalysis);
-videoLimit.addEventListener("change", runAnalysis);
 globalInsightButton.addEventListener("click", showGlobalInsights);
 scriptAnalyzeButton.addEventListener("click", analyzeScript);
 copyScriptButton.addEventListener("click", copyScript);
@@ -284,9 +281,12 @@ function renderVideoCard(video) {
   const score = video.score;
   const disabledClass = video.transcriptAvailable ? "" : " is-disabled";
   const transcriptLabel = video.transcriptAvailable ? "스크립트 불러오기" : "직접 추출";
+  const thumbnailStyle = video.thumbnail
+    ? ` style="background-image: linear-gradient(rgba(28, 31, 36, 0.1), rgba(28, 31, 36, 0.38)), url('${escapeAttribute(video.thumbnail)}')"`
+    : "";
   return `
     <article class="video-card">
-      <div class="thumb">
+      <div class="thumb"${thumbnailStyle}>
         <div class="type-badge">${typeLabel(video.type)}</div>
         <span>${escapeHtml(video.channel)}</span>
       </div>
@@ -840,7 +840,12 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function escapeAttribute(value) {
+  return String(value).replaceAll("\\", "\\\\").replaceAll("'", "\\'");
+}
+
 renderTemplateOptions();
 renderSavedSessionOptions();
 syncCustomFormatField();
-runAnalysis();
+renderMetrics([]);
+renderResults([]);
