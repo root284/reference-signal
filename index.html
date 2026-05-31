@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reference Signal</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="분석 설정">
+        <div class="brand">
+          <div class="brand-mark">RS</div>
+          <div>
+            <h1>Reference Signal</h1>
+            <p>레퍼런스 채널 성과 분석기</p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-title">
+            <span>1단계</span>
+            <h2>채널 입력</h2>
+          </div>
+          <label class="field">
+            <span>레퍼런스 채널 URL 또는 핸들</span>
+            <textarea id="channelInput" rows="6" placeholder="@channel 또는 youtube.com/@channel 을 한 줄에 하나씩 입력"></textarea>
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>채널당 영상 수</span>
+              <select id="videoLimit">
+                <option value="30">최근 30개</option>
+                <option value="50">최근 50개</option>
+                <option value="100" selected>최근 100개</option>
+                <option value="200">최근 200개</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>기간</span>
+              <select id="periodFilter">
+                <option value="all" selected>전체</option>
+                <option value="30">30일</option>
+                <option value="90">90일</option>
+                <option value="180">180일</option>
+                <option value="365">1년</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field">
+            <span>영상 타입</span>
+            <div class="segmented" role="radiogroup" aria-label="영상 타입">
+              <button class="segment is-active" type="button" data-type="all">전체</button>
+              <button class="segment" type="button" data-type="long">롱폼</button>
+              <button class="segment" type="button" data-type="short">숏츠</button>
+            </div>
+          </div>
+
+          <button id="analyzeButton" class="primary-button" type="button">
+            분석 실행
+          </button>
+          <p class="hint">현재 버전은 샘플 데이터로 UX를 확인합니다. YouTube API 연결 지점은 코드에 분리해두었습니다.</p>
+          <p id="statusMessage" class="hint" aria-live="polite"></p>
+        </section>
+
+        <section class="panel save-panel">
+          <div class="panel-title">
+            <span>저장</span>
+            <h2>작업 저장/불러오기</h2>
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>저장자</span>
+              <input id="saveAuthorInput" type="text" placeholder="예: 하나" />
+            </label>
+            <label class="field">
+              <span>저장 코멘트</span>
+              <input id="saveCommentInput" type="text" placeholder="예: 모하나TV 1차 기획" />
+            </label>
+          </div>
+          <label class="field">
+            <span>저장 목록</span>
+            <select id="savedSessionSelect">
+              <option value="">저장된 작업 선택</option>
+            </select>
+          </label>
+          <div class="save-actions">
+            <button id="saveSessionButton" class="ghost-button" type="button">중간 저장</button>
+            <button id="loadSessionButton" class="ghost-button" type="button">저장 불러오기</button>
+          </div>
+        </section>
+
+        <section class="panel muted-panel">
+          <div class="panel-title">
+            <span>성과점수</span>
+            <h2>가중치</h2>
+          </div>
+          <div class="weight-list">
+            <div><span>조회수/구독자</span><strong>40</strong></div>
+            <div><span>좋아요율</span><strong>20</strong></div>
+            <div><span>댓글율</span><strong>15</strong></div>
+            <div><span>조회 속도</span><strong>15</strong></div>
+            <div><span>신선도</span><strong>10</strong></div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Reference to production</p>
+            <h2>성과가 튄 영상을 찾고, 패턴을 내 채널용 기획으로 바꿉니다.</h2>
+          </div>
+          <div class="top-actions">
+            <button id="loadSampleButton" class="ghost-button" type="button">샘플 불러오기</button>
+            <button id="exportButton" class="ghost-button" type="button">결과 데이터 복사</button>
+          </div>
+        </header>
+
+        <section class="summary-grid" aria-label="분석 요약">
+          <article class="metric">
+            <span>분석 영상</span>
+            <strong id="metricVideos">0</strong>
+          </article>
+          <article class="metric">
+            <span>평균 성과점수</span>
+            <strong id="metricScore">0</strong>
+          </article>
+          <article class="metric">
+            <span>주목할 영상</span>
+            <strong id="metricBreakouts">0</strong>
+          </article>
+          <article class="metric">
+            <span>선택 타입</span>
+            <strong id="metricType">전체</strong>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <div class="results-area">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Step 1</p>
+                <h2>Top 20 성과 영상</h2>
+              </div>
+              <button id="globalInsightButton" class="secondary-button" type="button">Top 20 인사이트</button>
+            </div>
+            <div id="resultsList" class="video-list" aria-live="polite"></div>
+          </div>
+
+          <aside class="insight-area" aria-label="심화 분석">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">Step 2</p>
+                <h2>심화분석</h2>
+              </div>
+            </div>
+            <div id="insightPanel" class="insight-panel empty-state">
+              <h3>분석할 영상을 선택하세요</h3>
+              <p>Top 20 전체 인사이트를 보거나, 개별 영상의 스크립트를 붙여넣어 더 깊게 분석할 수 있습니다.</p>
+            </div>
+            <div id="scriptResultPanel" class="insight-panel script-result-panel"></div>
+
+            <div class="script-box">
+              <div class="panel-title">
+                <span>스크립트</span>
+                <h2>수동 입력 분석</h2>
+              </div>
+              <textarea id="scriptInput" rows="7" placeholder="YouTube에서 복사한 스크립트를 붙여넣으면 훅, 전개, 반복 구조를 분석합니다."></textarea>
+              <div class="save-actions">
+                <button id="copyScriptButton" class="ghost-button" type="button">스크립트 복사</button>
+                <button id="downloadScriptButton" class="ghost-button" type="button">스크립트 다운로드</button>
+              </div>
+              <button id="scriptAnalyzeButton" class="secondary-button full" type="button">스크립트 분석</button>
+            </div>
+
+            <div class="section-header compact stage-three">
+              <div>
+                <p class="eyebrow">Step 3</p>
+                <h2>내 채널용 변환</h2>
+              </div>
+            </div>
+            <div class="template-toolbar">
+              <select id="templateSelect" aria-label="채널 불러오기">
+                <option value="">채널 불러오기</option>
+              </select>
+              <button id="saveTemplateButton" class="ghost-button" type="button">채널 설정 저장</button>
+            </div>
+            <label class="field">
+              <span>채널 이름</span>
+              <input id="templateNameInput" type="text" placeholder="예: 모하나TV" />
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span>채널 주제</span>
+                <input id="channelTopicInput" type="text" placeholder="예: AI 생산성" />
+              </label>
+              <label class="field">
+                <span>타깃 시청자</span>
+                <input id="audienceInput" type="text" placeholder="예: 30대 직장인" />
+              </label>
+            </div>
+            <label class="field">
+              <span>톤앤매너</span>
+              <input id="toneInput" type="text" placeholder="예: 현실적, 친절함, 과장 적게" />
+            </label>
+            <label class="field">
+              <span>피하고 싶은 스타일</span>
+              <input id="avoidInput" type="text" placeholder="예: 자극적인 공포 마케팅, 뜬구름 잡는 조언" />
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span>영상 길이 유형</span>
+                <select id="targetFormatInput">
+                  <option value="롱폼" selected>롱폼</option>
+                  <option value="숏츠">숏츠</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>목표 길이</span>
+                <select id="targetLengthInput">
+                  <option value="60초 이하">60초 이하</option>
+                  <option value="3-5분">3-5분</option>
+                  <option value="8-12분" selected>8-12분</option>
+                  <option value="15-20분">15-20분</option>
+                  <option value="20분 이상">20분 이상</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">
+              <span>콘텐츠 포맷</span>
+              <select id="contentFormatInput">
+                <option value="분석/해설" selected>분석/해설</option>
+                <option value="튜토리얼/따라하기">튜토리얼/따라하기</option>
+                <option value="사례 분석">사례 분석</option>
+                <option value="리뷰/비교">리뷰/비교</option>
+                <option value="체크리스트">체크리스트</option>
+                <option value="인터뷰/대담">인터뷰/대담</option>
+                <option value="브이로그/경험담">브이로그/경험담</option>
+                <option value="뉴스/트렌드">뉴스/트렌드</option>
+                <option value="기타">기타</option>
+              </select>
+            </label>
+            <label id="customFormatField" class="field custom-format-field">
+              <span>기타 포맷</span>
+              <input id="customFormatInput" type="text" placeholder="원하는 포맷을 직접 입력" />
+            </label>
+            <label class="field">
+              <span>추가 메모</span>
+              <textarea id="myChannelInput" rows="4" placeholder="채널의 차별점, 자주 쓰는 표현, 원하는 영상 길이 등을 적어두세요."></textarea>
+            </label>
+            <button id="generatePlanButton" class="primary-button full" type="button">기획안 만들기</button>
+            <div id="planPanel" class="plan-panel"></div>
+
+            <div id="draftEditor" class="draft-editor">
+              <div class="section-header compact stage-three">
+                <div>
+                  <p class="eyebrow">Step 4</p>
+                  <h2>스크립트 초안 작성</h2>
+                </div>
+              </div>
+              <label class="field">
+                <span>제목 (직접 수정 가능)</span>
+                <input id="draftTitleInput" type="text" placeholder="추천 제목이 여기에 들어옵니다." />
+              </label>
+              <label class="field">
+                <span>기획안 (직접 수정 가능)</span>
+                <textarea id="editablePlanInput" rows="8" placeholder="3단계 기획안이 여기에 들어옵니다. 마음에 드는 방향으로 고친 뒤 초안을 만드세요."></textarea>
+              </label>
+              <label class="field">
+                <span>추가 자료 글/링크</span>
+                <textarea id="sourceMaterialInput" rows="5" placeholder="참고할 기사, 메모, 리서치 링크, 꼭 넣을 문장 등을 붙여넣으세요."></textarea>
+              </label>
+              <button id="generateScriptButton" class="primary-button full" type="button">스크립트 초안 만들기</button>
+              <div id="scriptDraftPanel" class="plan-panel"></div>
+            </div>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

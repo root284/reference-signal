@@ -1,0 +1,289 @@
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = fileURLToPath(new URL(".", import.meta.url));
+const port = Number(process.env.PORT || 3000);
+const youtubeApiKey = process.env.YOUTUBE_API_KEY || "";
+const youtubeBase = "https://www.googleapis.com/youtube/v3";
+
+const mimeTypes = {
+  ".html": "text/html;charset=utf-8",
+  ".css": "text/css;charset=utf-8",
+  ".js": "application/javascript;charset=utf-8",
+  ".json": "application/json;charset=utf-8",
+  ".txt": "text/plain;charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+};
+
+const server = createServer(async (request, response) => {
+  try {
+    const url = new URL(request.url || "/", `http://${request.headers.host}`);
+
+    if (request.method === "GET" && url.pathname === "/api/health") {
+      return sendJson(response, 200, {
+        ok: true,
+        youtubeConfigured: Boolean(youtubeApiKey),
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/analyze") {
+      return handleAnalyze(request, response);
+    }
+
+    if (request.method !== "GET") {
+      return sendJson(response, 405, { error: "Method not allowed" });
+    }
+
+    return serveStatic(url.pathname, response);
+  } catch (error) {
+    console.error(error);
+    return sendJson(response, 500, { error: "Internal server error" });
+  }
+});
+
+server.listen(port, () => {
+  console.log(`Reference Signal is running on http://localhost:${port}`);
+});
+
+async function handleAnalyze(request, response) {
+  if (!youtubeApiKey) {
+    return sendJson(response, 503, {
+      error: "YOUTUBE_API_KEY is not configured",
+    });
+  }
+
+  const body = await readBody(request);
+  const channels = Array.isArray(body.channels)
+    ? body.channels.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+  const limit = clamp(Number(body.limit || 100), 1, 200);
+
+  if (!channels.length) {
+    return sendJson(response, 400, { error: "channels is required" });
+  }
+
+  const channelResults = await Promise.all(
+    channels.map(async (channelInput) => {
+      try {
+        const channel = await resolveChannel(channelInput);
+        const playlistItems = await fetchUploadItems(channel.uploadsPlaylistId, limit);
+        const videos = await fetchVideos(playlistItems.map((item) => item.videoId));
+        return {
+          input: channelInput,
+          channel,
+          videos: videos.map((video) => normalizeVideo(video, channel)),
+        };
+      } catch (error) {
+        return {
+          input: channelInput,
+          error: error.message,
+          channel: null,
+          videos: [],
+        };
+      }
+    }),
+  );
+
+  return sendJson(response, 200, {
+    channels: channelResults,
+    videos: channelResults.flatMap((result) => result.videos),
+  });
+}
+
+async function resolveChannel(input) {
+  const parsed = parseChannelInput(input);
+  const params = new URLSearchParams({
+    part: "snippet,statistics,contentDetails",
+    key: youtubeApiKey,
+  });
+
+  if (parsed.channelId) {
+    params.set("id", parsed.channelId);
+  } else if (parsed.handle) {
+    params.set("forHandle", parsed.handle);
+  } else if (parsed.username) {
+    params.set("forUsername", parsed.username);
+  } else {
+    throw new Error("지원하는 채널 형식이 아닙니다. @handle 또는 /channel/UC... URL을 사용하세요.");
+  }
+
+  const data = await youtubeFetch("channels", params);
+  const item = data.items?.[0];
+  if (!item) {
+    throw new Error("채널을 찾을 수 없습니다.");
+  }
+
+  return {
+    id: item.id,
+    title: item.snippet?.title || item.id,
+    handle: parsed.handle || "",
+    subscribers: Number(item.statistics?.subscriberCount || 0),
+    uploadsPlaylistId: item.contentDetails?.relatedPlaylists?.uploads,
+    thumbnail: bestThumbnail(item.snippet?.thumbnails),
+  };
+}
+
+async function fetchUploadItems(playlistId, limit) {
+  if (!playlistId) {
+    throw new Error("업로드 재생목록을 찾을 수 없습니다.");
+  }
+
+  const items = [];
+  let pageToken = "";
+
+  while (items.length < limit) {
+    const params = new URLSearchParams({
+      part: "snippet,contentDetails",
+      playlistId,
+      maxResults: String(Math.min(50, limit - items.length)),
+      key: youtubeApiKey,
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const data = await youtubeFetch("playlistItems", params);
+    for (const item of data.items || []) {
+      const videoId = item.contentDetails?.videoId || item.snippet?.resourceId?.videoId;
+      if (videoId) items.push({ videoId });
+    }
+
+    pageToken = data.nextPageToken || "";
+    if (!pageToken) break;
+  }
+
+  return items;
+}
+
+async function fetchVideos(videoIds) {
+  const videos = [];
+  for (let index = 0; index < videoIds.length; index += 50) {
+    const ids = videoIds.slice(index, index + 50);
+    const params = new URLSearchParams({
+      part: "snippet,statistics,contentDetails",
+      id: ids.join(","),
+      key: youtubeApiKey,
+    });
+    const data = await youtubeFetch("videos", params);
+    videos.push(...(data.items || []));
+  }
+  return videos;
+}
+
+function normalizeVideo(video, channel) {
+  const durationSeconds = parseDuration(video.contentDetails?.duration || "PT0S");
+  const publishedAt = video.snippet?.publishedAt || new Date().toISOString();
+  return {
+    id: video.id,
+    channel: channel.title,
+    channelId: channel.id,
+    title: video.snippet?.title || "Untitled",
+    description: video.snippet?.description || "",
+    type: durationSeconds <= 60 ? "short" : "long",
+    views: Number(video.statistics?.viewCount || 0),
+    subscribers: channel.subscribers,
+    likes: Number(video.statistics?.likeCount || 0),
+    comments: Number(video.statistics?.commentCount || 0),
+    ageDays: ageDays(publishedAt),
+    durationMinutes: Math.max(1, Math.round(durationSeconds / 60)),
+    durationSeconds,
+    publishedAt,
+    thumbnail: bestThumbnail(video.snippet?.thumbnails),
+    url: `https://www.youtube.com/watch?v=${video.id}`,
+    transcriptAvailable: false,
+  };
+}
+
+function parseChannelInput(input) {
+  const value = String(input).trim();
+  const channelMatch = value.match(/(?:youtube\.com\/channel\/|^)(UC[\w-]{20,})/);
+  if (channelMatch) return { channelId: channelMatch[1] };
+
+  const handleMatch = value.match(/@[\w.-]+/);
+  if (handleMatch) return { handle: handleMatch[0] };
+
+  const userMatch = value.match(/youtube\.com\/user\/([^/?#]+)/);
+  if (userMatch) return { username: userMatch[1] };
+
+  if (value.startsWith("@")) return { handle: value };
+  if (/^UC[\w-]{20,}$/.test(value)) return { channelId: value };
+
+  return {};
+}
+
+async function youtubeFetch(path, params) {
+  const response = await fetch(`${youtubeBase}/${path}?${params.toString()}`);
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data.error?.message || `YouTube API error: ${response.status}`;
+    throw new Error(message);
+  }
+  return data;
+}
+
+function parseDuration(duration) {
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 0;
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+function bestThumbnail(thumbnails = {}) {
+  return (
+    thumbnails.maxres?.url ||
+    thumbnails.standard?.url ||
+    thumbnails.high?.url ||
+    thumbnails.medium?.url ||
+    thumbnails.default?.url ||
+    ""
+  );
+}
+
+function ageDays(publishedAt) {
+  const diff = Date.now() - new Date(publishedAt).getTime();
+  return Math.max(0, Math.floor(diff / 86400000));
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+async function readBody(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  const raw = Buffer.concat(chunks).toString("utf8");
+  if (!raw) return {};
+  return JSON.parse(raw);
+}
+
+async function serveStatic(pathname, response) {
+  const cleanPath = pathname === "/" ? "/index.html" : pathname;
+  const filePath = normalize(join(root, cleanPath));
+  if (!filePath.startsWith(root)) {
+    return sendJson(response, 403, { error: "Forbidden" });
+  }
+
+  try {
+    const body = await readFile(filePath);
+    response.writeHead(200, {
+      "Content-Type": mimeTypes[extname(filePath)] || "application/octet-stream",
+      "Cache-Control": "no-store",
+    });
+    response.end(body);
+  } catch {
+    sendJson(response, 404, { error: "Not found" });
+  }
+}
+
+function sendJson(response, statusCode, payload) {
+  response.writeHead(statusCode, {
+    "Content-Type": "application/json;charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(JSON.stringify(payload));
+}
