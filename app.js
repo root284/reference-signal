@@ -840,7 +840,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-channelInput.value = sampleChannels.join("\n");
 renderTemplateOptions();
 renderSavedSessionOptions();
 syncCustomFormatField();
