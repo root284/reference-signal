@@ -307,11 +307,11 @@ function renderVideoCard(video) {
       </div>
       <div class="score-box">
         <div class="score-circle" style="--score: ${score.total}"><span>${score.total}</span></div>
-        <div class="card-actions">
-          <button type="button" data-insight-id="${video.id}">심화분석</button>
-          <a href="${video.url}" target="_blank" rel="noreferrer">바로가기</a>
-          <button type="button" class="${disabledClass}" data-transcript-id="${video.id}" ${video.transcriptAvailable ? "" : "disabled"}>${transcriptLabel}</button>
-        </div>
+      </div>
+      <div class="card-actions">
+        <button type="button" data-insight-id="${video.id}">심화분석</button>
+        <a href="${video.url}" target="_blank" rel="noreferrer">바로가기</a>
+        <button type="button" class="${disabledClass}" data-transcript-id="${video.id}" ${video.transcriptAvailable ? "" : "disabled"}>${transcriptLabel}</button>
       </div>
     </article>
   `;

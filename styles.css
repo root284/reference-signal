@@ -358,8 +358,12 @@ select {
 
 .video-card {
   display: grid;
-  grid-template-columns: 164px minmax(0, 1fr) 120px;
-  gap: 14px;
+  grid-template-columns: 164px minmax(0, 1fr) 84px;
+  grid-template-areas:
+    "thumb main score"
+    "thumb actions score";
+  gap: 10px 14px;
+  align-items: start;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -367,6 +371,7 @@ select {
 }
 
 .thumb {
+  grid-area: thumb;
   position: relative;
   aspect-ratio: 16 / 9;
   min-height: 0;
@@ -418,6 +423,7 @@ select {
 }
 
 .video-main {
+  grid-area: main;
   min-width: 0;
 }
 
@@ -463,17 +469,16 @@ select {
 }
 
 .score-box {
-  display: grid;
-  align-content: space-between;
-  gap: 10px;
+  grid-area: score;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .score-circle {
   display: grid;
   place-items: center;
-  width: 74px;
-  height: 74px;
-  justify-self: end;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   color: var(--ink);
   background: conic-gradient(var(--green) calc(var(--score) * 1%), #ebe7de 0);
@@ -482,16 +487,18 @@ select {
 .score-circle span {
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: #fff;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 900;
 }
 
 .card-actions {
+  grid-area: actions;
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -499,7 +506,7 @@ select {
 .card-actions button {
   display: grid;
   place-items: center;
-  min-height: 34px;
+  min-height: 32px;
   padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -663,10 +670,19 @@ select {
 
   .video-card {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "thumb"
+      "main"
+      "score"
+      "actions";
   }
 
   .score-circle {
     justify-self: start;
+  }
+
+  .score-box {
+    justify-content: flex-start;
   }
 
   .stat-grid {
