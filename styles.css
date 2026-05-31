@@ -368,7 +368,8 @@ select {
 
 .thumb {
   position: relative;
-  min-height: 92px;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
   overflow: hidden;
   border-radius: 6px;
   background: linear-gradient(135deg, #273447, #2357d6 48%, #d06b43);
@@ -376,8 +377,24 @@ select {
   background-size: cover;
 }
 
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(rgba(28, 31, 36, 0.03), rgba(28, 31, 36, 0.42));
+  pointer-events: none;
+}
+
 .thumb span {
   position: absolute;
+  z-index: 1;
   left: 10px;
   bottom: 9px;
   right: 10px;
@@ -389,6 +406,7 @@ select {
 
 .type-badge {
   position: absolute;
+  z-index: 1;
   top: 8px;
   left: 8px;
   padding: 4px 7px;

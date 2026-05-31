@@ -281,12 +281,13 @@ function renderVideoCard(video) {
   const score = video.score;
   const disabledClass = video.transcriptAvailable ? "" : " is-disabled";
   const transcriptLabel = video.transcriptAvailable ? "스크립트 불러오기" : "직접 추출";
-  const thumbnailStyle = video.thumbnail
-    ? ` style="background-image: linear-gradient(rgba(28, 31, 36, 0.1), rgba(28, 31, 36, 0.38)), url('${escapeAttribute(video.thumbnail)}')"`
+  const thumbnailImage = video.thumbnail
+    ? `<img src="${escapeHtml(video.thumbnail)}" alt="${escapeHtml(video.title)} 썸네일" loading="lazy" referrerpolicy="no-referrer" />`
     : "";
   return `
     <article class="video-card">
-      <div class="thumb"${thumbnailStyle}>
+      <div class="thumb">
+        ${thumbnailImage}
         <div class="type-badge">${typeLabel(video.type)}</div>
         <span>${escapeHtml(video.channel)}</span>
       </div>
@@ -838,10 +839,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function escapeAttribute(value) {
-  return String(value).replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
 renderTemplateOptions();
