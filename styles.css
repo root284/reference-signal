@@ -358,11 +358,11 @@ select {
 
 .video-card {
   display: grid;
-  grid-template-columns: 164px minmax(0, 1fr) 84px;
+  grid-template-columns: 164px minmax(0, 1fr) 78px;
   grid-template-areas:
     "thumb main score"
     "thumb actions score";
-  gap: 10px 14px;
+  gap: 8px 14px;
   align-items: start;
   padding: 12px;
   border: 1px solid var(--line);
@@ -428,7 +428,7 @@ select {
 }
 
 .video-title {
-  margin: 0 0 7px;
+  margin: 0 0 6px;
   font-size: 17px;
   line-height: 1.35;
 }
@@ -437,33 +437,35 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-size: 12px;
 }
 
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .stat {
   min-width: 0;
-  padding: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 8px;
   border-radius: 6px;
   background: #f4f2ec;
 }
 
 .stat span {
-  display: block;
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
 }
 
 .stat strong {
-  display: block;
-  margin-top: 3px;
   font-size: 13px;
   overflow-wrap: anywhere;
 }
@@ -477,8 +479,8 @@ select {
 .score-circle {
   display: grid;
   place-items: center;
-  width: 68px;
-  height: 68px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   color: var(--ink);
   background: conic-gradient(var(--green) calc(var(--score) * 1%), #ebe7de 0);
@@ -487,8 +489,8 @@ select {
 .score-circle span {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: #fff;
   font-size: 19px;
@@ -497,8 +499,8 @@ select {
 
 .card-actions {
   grid-area: actions;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -507,7 +509,8 @@ select {
   display: grid;
   place-items: center;
   min-height: 32px;
-  padding: 0 8px;
+  min-width: 88px;
+  padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 7px;
   color: var(--ink);
@@ -685,8 +688,8 @@ select {
     justify-content: flex-start;
   }
 
-  .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .stat-row {
+    align-items: flex-start;
   }
 }
 

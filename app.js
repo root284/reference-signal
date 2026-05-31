@@ -298,7 +298,7 @@ function renderVideoCard(video) {
           <span>${video.ageDays}일 전</span>
           <span>${video.durationMinutes}분</span>
         </div>
-        <div class="stat-grid">
+        <div class="stat-row">
           <div class="stat"><span>조회수</span><strong>${formatNumber(video.views)}</strong></div>
           <div class="stat"><span>조회/구독자</span><strong>${score.viewRatio.toFixed(1)}배</strong></div>
           <div class="stat"><span>좋아요율</span><strong>${percent(score.likeRate)}</strong></div>
