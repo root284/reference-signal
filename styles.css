@@ -358,12 +358,12 @@ select {
 
 .video-card {
   display: grid;
-  grid-template-columns: 164px minmax(0, 1fr) 78px;
+  grid-template-columns: 210px minmax(0, 1fr) 104px;
   grid-template-areas:
     "thumb main score"
     "thumb actions score";
   gap: 8px 14px;
-  align-items: start;
+  align-items: stretch;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -373,8 +373,9 @@ select {
 .thumb {
   grid-area: thumb;
   position: relative;
-  aspect-ratio: 16 / 9;
-  min-height: 0;
+  height: 100%;
+  min-height: 126px;
+  aspect-ratio: auto;
   overflow: hidden;
   border-radius: 6px;
   background: linear-gradient(135deg, #273447, #2357d6 48%, #d06b43);
@@ -473,14 +474,18 @@ select {
 .score-box {
   grid-area: score;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  border-left: 1px solid #ebe7de;
+  padding-left: 12px;
 }
 
 .score-circle {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   color: var(--ink);
   background: conic-gradient(var(--green) calc(var(--score) * 1%), #ebe7de 0);
@@ -489,11 +494,11 @@ select {
 .score-circle span {
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   background: #fff;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 900;
 }
 
@@ -686,6 +691,15 @@ select {
 
   .score-box {
     justify-content: flex-start;
+    min-height: auto;
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .thumb {
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
   }
 
   .stat-row {
