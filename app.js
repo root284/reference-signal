@@ -394,27 +394,28 @@ function generatePlan() {
   const profile = getChannelProfile();
   const concept = formatProfile(profile);
   const base = selectedVideo || currentResults[0];
-  const titleSeed = base ? base.title : "성과 좋은 레퍼런스 영상";
-  const planText = makePlanText(profile, titleSeed);
-  draftTitleInput.value = makeRecommendedTitle(profile, titleSeed);
+  const reference = getReferenceContext(base);
+  const planText = makePlanText(profile, reference);
+  const titleCandidates = makeTitleCandidates(profile, reference);
+  draftTitleInput.value = titleCandidates[0];
 
   planPanel.classList.add("is-visible");
   planPanel.innerHTML = `
     <div class="plan-card">
-      <h3>아이템 1: 레퍼런스 패턴 변환</h3>
-      <p>${escapeHtml(concept)} 관점에서 "${escapeHtml(titleSeed)}"의 구조를 빌려, ${escapeHtml(profile.format)} ${escapeHtml(profile.contentFormat)} ${escapeHtml(profile.length)} 영상으로 바꿉니다.</p>
+      <h3>레퍼런스 근거</h3>
+      <p>${escapeHtml(reference.summary)}</p>
     </div>
     <div class="plan-card">
       <h3>제목 후보</h3>
-      <p>내 채널이 지금 바로 따라 해도 되는 현실적인 방법 / 구독자가 적어도 반응이 오는 아이템 선정법 / 조회수가 튀는 영상의 첫 문장</p>
+      <p>${titleCandidates.map(escapeHtml).join(" / ")}</p>
+    </div>
+    <div class="plan-card">
+      <h3>5-set 구성</h3>
+      <p>SET 1 훅, SET 2 문제 확대, SET 3 레퍼런스 패턴 해체, SET 4 내 채널 적용, SET 5 실행/마무리 순서로 작성합니다.</p>
     </div>
     <div class="plan-card">
       <h3>썸네일 방향</h3>
-      <p>왼쪽에는 문제 상황, 오른쪽에는 바뀐 결과를 대비시킵니다. 문구는 6단어 이하로 줄이고 숫자 또는 전후 변화를 넣습니다.</p>
-    </div>
-    <div class="plan-card">
-      <h3>오프닝 훅</h3>
-      <p>${escapeHtml(profile.audience || "시청자")}가 이미 느끼는 문제를 먼저 짚고, 레퍼런스의 성공 패턴을 ${escapeHtml(profile.tone || "내 채널 톤")}으로 바꿔 설명합니다.</p>
+      <p>${escapeHtml(reference.thumbnailInsight)}</p>
     </div>
   `;
   editablePlanInput.value = planText;
@@ -465,7 +466,7 @@ function formatProfile(profile) {
   return parts.join(" / ");
 }
 
-function makePlanText(profile, titleSeed) {
+function makePlanText(profile, reference) {
   return [
     `채널: ${profile.name || "내 채널"}`,
     `주제: ${profile.topic || "미정"}`,
@@ -476,10 +477,24 @@ function makePlanText(profile, titleSeed) {
     `목표 길이: ${profile.length}`,
     `피하고 싶은 스타일: ${profile.avoid || "없음"}`,
     "",
-    `레퍼런스 패턴: "${titleSeed}"의 성과 포인트를 그대로 복제하지 않고, 내 채널의 주제와 타깃에 맞게 변환한다.`,
-    "아이템 방향: 시청자가 이미 겪고 있는 문제를 먼저 보여주고, 구체적인 결과가 보이는 실험/사례/체크리스트로 풀어낸다.",
-    "제목 방향: 숫자, 기간, 결과, 문제 중 하나를 선명하게 넣는다.",
-    "썸네일 방향: 제목을 반복하지 말고 전후 대비나 결과물을 압축해서 보여준다.",
+    `[레퍼런스 영상]`,
+    `제목: ${reference.title}`,
+    `채널: ${reference.channel}`,
+    `성과 신호: ${reference.metrics}`,
+    `추정 성공 패턴: ${reference.pattern}`,
+    `썸네일 참고점: ${reference.thumbnailInsight}`,
+    "",
+    `[내 채널 변환 방향]`,
+    `아이템 방향: 레퍼런스의 "${reference.corePromise}" 구조를 ${profile.topic || "내 주제"}와 ${profile.audience || "내 시청자"} 상황에 맞게 변환한다.`,
+    `제목 방향: ${reference.titleFormula}`,
+    "썸네일 방향: 제목을 반복하지 말고 전후 대비, 결과물, 금지/실수 신호 중 하나로 압축한다.",
+    "",
+    `[5-set 구성]`,
+    "SET 1 훅: 시청자가 이미 겪는 문제를 짧게 찌르고, 영상에서 얻을 결과를 약속한다.",
+    "SET 2 문제 확대: 왜 이 문제가 반복되는지 흔한 오해/실패 패턴을 보여준다.",
+    "SET 3 레퍼런스 패턴 해체: 레퍼런스 영상이 잘 된 이유를 제목/아이템/썸네일/반응 지표 기준으로 분해한다.",
+    "SET 4 내 채널 적용: 같은 패턴을 내 채널 주제와 타깃에 맞게 바꾸는 방법을 제안한다.",
+    "SET 5 실행/마무리: 바로 적용할 체크리스트와 다음 행동을 제시한다.",
     `추가 메모: ${profile.memo || "없음"}`,
   ].join("\n");
 }
@@ -496,40 +511,58 @@ function makeRecommendedTitle(profile, titleSeed) {
   return `${audience}를 위한 ${topic} 현실 적용법`;
 }
 
+function makeTitleCandidates(profile, reference) {
+  const audience = profile.audience || "내 시청자";
+  const topic = profile.topic || "내 주제";
+  const core = reference.corePromise || "성과가 난 패턴";
+  return [
+    `${audience}를 위한 ${topic} 현실 적용법`,
+    `${core}을 ${topic}에 적용하면 달라지는 것`,
+    `${reference.titleFormula}로 다시 만든 ${topic} 콘텐츠`,
+  ];
+}
+
 function generateScriptDraft() {
   const profile = getChannelProfile();
-  const title = draftTitleInput.value.trim() || makeRecommendedTitle(profile, selectedVideo?.title || "성과 좋은 레퍼런스 영상");
+  const base = selectedVideo || currentResults[0];
+  const reference = getReferenceContext(base);
+  const title = draftTitleInput.value.trim() || makeTitleCandidates(profile, reference)[0];
   const plan = editablePlanInput.value.trim();
   const materials = sourceMaterialInput.value.trim();
-  const base = selectedVideo || currentResults[0];
-  const referenceTitle = base ? base.title : "선택한 레퍼런스 영상";
+  const referenceScript = scriptInput.value.trim();
   const draft = [
     `[스크립트 초안]`,
     `제목: ${title}`,
     `영상 길이 유형: ${profile.format}`,
     `콘텐츠 포맷: ${profile.contentFormat}`,
     `목표 길이: ${profile.length}`,
-    `레퍼런스: ${referenceTitle}`,
+    `레퍼런스: ${reference.title}`,
+    `레퍼런스 성과 신호: ${reference.metrics}`,
     "",
-    `오프닝`,
-    `${profile.audience || "시청자"}가 지금 겪는 문제를 한 문장으로 짚고 시작합니다. "이 방법을 알면 같은 시간을 쓰고도 결과가 달라질 수 있습니다."`,
+    `[SET 1. 훅]`,
+    `${profile.audience || "시청자"}가 이미 겪고 있는 문제를 먼저 짚습니다. "${reference.title}"이 성과를 낸 이유를 그대로 베끼는 게 아니라, 그 안에 있는 ${reference.corePromise} 구조를 ${profile.topic || "내 주제"}에 맞게 바꿔보겠다고 약속합니다.`,
     "",
-    `문제 제기`,
-    `많은 사람이 ${profile.topic || "이 주제"}를 시도하지만, 실제로 막히는 지점은 도구나 정보 부족이 아니라 순서와 기준이 없다는 점입니다.`,
+    `[SET 2. 문제 확대]`,
+    `많은 사람이 ${profile.topic || "이 주제"} 콘텐츠를 만들 때 주제만 따라 합니다. 하지만 실제로 중요한 건 제목이 어떤 기대를 만들었는지, 썸네일이 어떤 선택지를 보여줬는지, 시청자가 왜 반응했는지를 분해하는 것입니다.`,
     "",
-    `핵심 내용`,
-    `1. 레퍼런스에서 성과가 난 포인트를 먼저 분해합니다.`,
-    `2. 그 포인트를 ${profile.name || "내 채널"}의 타깃과 상황에 맞게 바꿉니다.`,
-    `3. 따라 할 수 있는 체크리스트로 정리합니다.`,
+    `[SET 3. 레퍼런스 패턴 해체]`,
+    `레퍼런스 영상은 ${reference.metrics}라는 신호를 보였습니다. 여기서 볼 포인트는 세 가지입니다.`,
+    `첫째, 제목은 ${reference.titleFormula} 구조입니다.`,
+    `둘째, 썸네일은 ${reference.thumbnailInsight}`,
+    `셋째, 아이템은 ${reference.pattern}`,
+    referenceScript ? `붙여넣은 스크립트 기준으로는 초반에 "${firstLine(referenceScript)}"로 시작합니다. 이 훅의 역할을 내 영상에서도 다른 소재로 재현합니다.` : "스크립트가 없으므로 제목, 썸네일, 수치 신호를 기준으로 패턴을 추정합니다.",
     "",
-    `기획안 반영`,
-    plan || "아직 수정한 기획안이 없습니다.",
+    `[SET 4. 내 채널 적용]`,
+    `${profile.name || "내 채널"}에서는 이 패턴을 ${profile.audience || "내 시청자"}가 바로 이해할 수 있는 상황으로 바꿉니다.`,
+    `기획안 반영: ${plan || "아직 수정한 기획안이 없습니다."}`,
+    `피할 점: ${profile.avoid || "레퍼런스를 그대로 복제하지 않고 표현과 사례를 바꿉니다."}`,
     "",
-    `추가 자료 반영`,
-    materials || "추가 자료가 없으므로 레퍼런스 분석과 채널 컨셉만 바탕으로 작성합니다.",
+    `[SET 5. 실행/마무리]`,
+    `마지막에는 시청자가 바로 적용할 체크리스트를 줍니다. 예를 들어 제목의 약속, 썸네일의 대비, 첫 10초의 문제 제기, 중간 전환 질문, 마무리 행동 제안을 하나씩 점검하게 합니다.`,
+    materials ? `추가 자료 반영: ${materials}` : "추가 자료가 없으므로 레퍼런스 분석과 채널 설정만 바탕으로 마무리합니다.",
     "",
-    `마무리`,
-    `오늘 내용에서 바로 적용할 수 있는 한 가지를 고르게 하고, 다음 영상에서 비교 결과나 실제 적용 사례를 이어갈 수 있게 마무리합니다.`,
+    `[엔딩 멘트]`,
+    `오늘은 "${reference.title}"에서 성과가 난 구조를 ${profile.topic || "내 주제"}에 맞게 바꾸는 방법을 봤습니다. 다음 영상에서는 이 구조를 실제 아이템 하나에 적용해서 제목과 썸네일까지 같이 만들어보겠습니다.`,
   ].join("\n");
 
   scriptDraftPanel.classList.add("is-visible");
@@ -546,6 +579,64 @@ function generateScriptDraft() {
   `;
   document.querySelector("#copyDraftButton").addEventListener("click", copyDraft);
   document.querySelector("#downloadDraftButton").addEventListener("click", downloadDraft);
+}
+
+function getReferenceContext(video) {
+  if (!video) {
+    return {
+      title: "선택한 레퍼런스 영상",
+      channel: "레퍼런스 채널",
+      metrics: "아직 선택된 레퍼런스 지표가 없습니다.",
+      pattern: "성과가 난 주제/제목/썸네일 구조를 먼저 선택해야 합니다.",
+      thumbnailInsight: "썸네일 분석을 위해 레퍼런스 영상을 선택하세요.",
+      corePromise: "성과가 난 패턴",
+      titleFormula: "문제와 결과를 선명하게 제시하는 제목",
+      summary: "아직 선택된 레퍼런스 영상이 없습니다.",
+    };
+  }
+  const score = video.score || scoreVideo(video);
+  const titleFormula = inferTitleFormula(video.title);
+  const pattern = inferReferencePattern(video, score);
+  const thumbnailInsight = getThumbnailInsight(video);
+  return {
+    title: video.title,
+    channel: video.channel,
+    metrics: `성과점수 ${score.total}점, 조회/구독자 ${score.viewRatio.toFixed(1)}배, 좋아요율 ${percent(score.likeRate)}, 댓글율 ${percent(score.commentRate)}`,
+    pattern,
+    thumbnailInsight,
+    corePromise: inferCorePromise(video.title),
+    titleFormula,
+    summary: `"${video.title}"은 ${video.channel} 채널에서 ${score.viewRatio.toFixed(1)}배 조회/구독자 비율을 만든 레퍼런스입니다. ${pattern}`,
+  };
+}
+
+function inferTitleFormula(title) {
+  if (/\d/.test(title)) return "숫자/기간/결과를 앞세워 기대값을 명확히 만드는 제목";
+  if (title.includes("이유") || title.includes("왜")) return "궁금증과 원인 분석을 약속하는 제목";
+  if (title.includes("방법") || title.includes("법")) return "바로 적용 가능한 방법을 약속하는 제목";
+  if (title.includes("안") || title.includes("못")) return "실수/금지/문제 상황을 통해 클릭 이유를 만드는 제목";
+  return "하나의 강한 상황이나 약속을 전면에 내세우는 제목";
+}
+
+function inferReferencePattern(video, score) {
+  const signals = [];
+  if (score.viewRatio >= 3) signals.push("기존 구독자 밖으로 확산된 아이템");
+  if (score.likeRate >= 0.04) signals.push("만족도나 저장 가치가 높은 반응");
+  if (score.commentRate >= 0.004) signals.push("시청자가 의견을 남기기 쉬운 주제");
+  if (video.type === "short") signals.push("짧은 시간에 한 장면/한 메시지로 전달되는 숏폼 구조");
+  if (!signals.length) signals.push("제목과 썸네일의 약속을 먼저 점검해야 하는 레퍼런스");
+  return signals.join(", ") + "입니다.";
+}
+
+function inferCorePromise(title) {
+  if (title.includes("이유")) return "왜 그런 일이 벌어지는지 설명하는 약속";
+  if (title.includes("방법") || title.includes("법")) return "바로 따라 할 수 있는 방법을 주는 약속";
+  if (/\d/.test(title)) return "구체적인 숫자나 결과로 신뢰를 주는 약속";
+  return "시청자의 궁금증을 한 번에 좁혀주는 약속";
+}
+
+function firstLine(text) {
+  return text.split(/\n|[.!?。！？]/).map((item) => item.trim()).filter(Boolean)[0] || "";
 }
 
 function syncCustomFormatField() {
