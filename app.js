@@ -279,8 +279,9 @@ function renderResults(videos) {
 
 function renderVideoCard(video) {
   const score = video.score;
-  const disabledClass = video.transcriptAvailable ? "" : " is-disabled";
-  const transcriptLabel = video.transcriptAvailable ? "스크립트 불러오기" : "직접 추출";
+  const transcriptButton = video.transcriptAvailable
+    ? `<button type="button" data-transcript-id="${video.id}">스크립트 불러오기</button>`
+    : "";
   const thumbnailImage = video.thumbnail
     ? `<img src="${escapeHtml(video.thumbnail)}" alt="${escapeHtml(video.title)} 썸네일" loading="lazy" referrerpolicy="no-referrer" />`
     : "";
@@ -311,7 +312,7 @@ function renderVideoCard(video) {
       <div class="card-actions">
         <button type="button" data-insight-id="${video.id}">심화분석</button>
         <a href="${video.url}" target="_blank" rel="noreferrer">바로가기</a>
-        <button type="button" class="${disabledClass}" data-transcript-id="${video.id}" ${video.transcriptAvailable ? "" : "disabled"}>${transcriptLabel}</button>
+        ${transcriptButton}
       </div>
     </article>
   `;
