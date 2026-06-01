@@ -371,21 +371,21 @@ function analyzeScript() {
     return;
   }
 
-  const sentences = text.split(/[.!?\n。！？]/).map((item) => item.trim()).filter(Boolean);
-  const first = sentences[0] || "초반 훅을 확인할 수 없습니다.";
-  const last = sentences[sentences.length - 1] || "마무리 문장을 확인할 수 없습니다.";
+  const details = extractScriptDetails(text);
 
   scriptResultPanel.classList.add("is-visible");
   scriptResultPanel.innerHTML = `
     <div class="panel-title">
       <span>스크립트 분석</span>
-      <h2>내용 구조</h2>
+      <h2>디테일 추출</h2>
     </div>
     <ul class="insight-list">
-      <li><strong>초반 훅:</strong> ${escapeHtml(first)}</li>
-      <li><strong>구조:</strong> 전체 ${sentences.length}개 문장 기준으로 문제 제기, 사례, 방법, 정리 순서로 재배열하면 제작용 아웃라인으로 쓰기 좋습니다.</li>
-      <li><strong>반복 포맷:</strong> 핵심 주장 뒤에 예시를 붙이는 문장을 찾아 썸네일 문구와 챕터 제목으로 재사용하세요.</li>
-      <li><strong>마무리:</strong> ${escapeHtml(last)}</li>
+      <li><strong>초반 훅:</strong> ${escapeHtml(details.hook)}</li>
+      <li><strong>핵심 주장:</strong> ${escapeHtml(details.claims.join(" / ") || "명확한 주장 문장을 찾지 못했습니다.")}</li>
+      <li><strong>디테일 지식:</strong> ${escapeHtml(details.keyDetails.join(" / ") || "구체 디테일을 더 넣으면 좋습니다.")}</li>
+      <li><strong>사례/근거/숫자:</strong> ${escapeHtml([...details.examples, ...details.numbers].join(" / ") || "사례나 숫자 근거가 적습니다.")}</li>
+      <li><strong>주의/오해 포인트:</strong> ${escapeHtml(details.warnings.join(" / ") || "주의점이 뚜렷하게 드러나지 않습니다.")}</li>
+      <li><strong>5-set 적용:</strong> 이 디테일을 SET 2 문제 확대, SET 3 레퍼런스 해체, SET 4 내 채널 적용에 나눠 반영합니다.</li>
     </ul>
   `;
 }
@@ -412,6 +412,10 @@ function generatePlan() {
     <div class="plan-card">
       <h3>5-set 구성</h3>
       <p>SET 1 훅, SET 2 문제 확대, SET 3 레퍼런스 패턴 해체, SET 4 내 채널 적용, SET 5 실행/마무리 순서로 작성합니다.</p>
+    </div>
+    <div class="plan-card">
+      <h3>스크립트 디테일 적용</h3>
+      <p>${escapeHtml(reference.scriptDetails.summary)}</p>
     </div>
     <div class="plan-card">
       <h3>썸네일 방향</h3>
@@ -483,11 +487,13 @@ function makePlanText(profile, reference) {
     `성과 신호: ${reference.metrics}`,
     `추정 성공 패턴: ${reference.pattern}`,
     `썸네일 참고점: ${reference.thumbnailInsight}`,
+    `스크립트 디테일: ${reference.scriptDetails.summary}`,
     "",
     `[내 채널 변환 방향]`,
     `아이템 방향: 레퍼런스의 "${reference.corePromise}" 구조를 ${profile.topic || "내 주제"}와 ${profile.audience || "내 시청자"} 상황에 맞게 변환한다.`,
     `제목 방향: ${reference.titleFormula}`,
     "썸네일 방향: 제목을 반복하지 말고 전후 대비, 결과물, 금지/실수 신호 중 하나로 압축한다.",
+    `디테일 적용 방향: ${reference.scriptDetails.application}`,
     "",
     `[5-set 구성]`,
     "SET 1 훅: 시청자가 이미 겪는 문제를 짧게 찌르고, 영상에서 얻을 결과를 약속한다.",
@@ -529,7 +535,7 @@ function generateScriptDraft() {
   const title = draftTitleInput.value.trim() || makeTitleCandidates(profile, reference)[0];
   const plan = editablePlanInput.value.trim();
   const materials = sourceMaterialInput.value.trim();
-  const referenceScript = scriptInput.value.trim();
+  const details = reference.scriptDetails;
   const draft = [
     `[스크립트 초안]`,
     `제목: ${title}`,
@@ -540,20 +546,23 @@ function generateScriptDraft() {
     `레퍼런스 성과 신호: ${reference.metrics}`,
     "",
     `[SET 1. 훅]`,
-    `${profile.audience || "시청자"}가 이미 겪고 있는 문제를 먼저 짚습니다. "${reference.title}"이 성과를 낸 이유를 그대로 베끼는 게 아니라, 그 안에 있는 ${reference.corePromise} 구조를 ${profile.topic || "내 주제"}에 맞게 바꿔보겠다고 약속합니다.`,
+    `${profile.audience || "시청자"}가 이미 겪고 있는 문제를 먼저 짚습니다. 레퍼런스는 "${details.hook}"로 시작하며, 이 훅의 역할은 시청자의 문제를 즉시 특정하는 것입니다. 내 영상에서는 같은 역할을 ${profile.topic || "내 주제"}의 상황으로 바꿔 시작합니다.`,
     "",
     `[SET 2. 문제 확대]`,
-    `많은 사람이 ${profile.topic || "이 주제"} 콘텐츠를 만들 때 주제만 따라 합니다. 하지만 실제로 중요한 건 제목이 어떤 기대를 만들었는지, 썸네일이 어떤 선택지를 보여줬는지, 시청자가 왜 반응했는지를 분해하는 것입니다.`,
+    `많은 사람이 ${profile.topic || "이 주제"} 콘텐츠를 만들 때 주제만 따라 합니다. 하지만 레퍼런스 스크립트의 문제 제기는 ${details.claims.join(" / ") || reference.corePromise}에 있습니다. 이 주장을 내 채널에서는 "${profile.audience || "시청자"}가 왜 이 문제를 반복하는가"로 확장합니다.`,
+    details.warnings.length ? `주의점으로는 ${details.warnings.join(" / ")}를 변환해 사용합니다.` : "주의점은 내 채널에서 흔히 하는 실수나 오해로 직접 보강합니다.",
     "",
     `[SET 3. 레퍼런스 패턴 해체]`,
     `레퍼런스 영상은 ${reference.metrics}라는 신호를 보였습니다. 여기서 볼 포인트는 세 가지입니다.`,
     `첫째, 제목은 ${reference.titleFormula} 구조입니다.`,
     `둘째, 썸네일은 ${reference.thumbnailInsight}`,
     `셋째, 아이템은 ${reference.pattern}`,
-    referenceScript ? `붙여넣은 스크립트 기준으로는 초반에 "${firstLine(referenceScript)}"로 시작합니다. 이 훅의 역할을 내 영상에서도 다른 소재로 재현합니다.` : "스크립트가 없으므로 제목, 썸네일, 수치 신호를 기준으로 패턴을 추정합니다.",
+    details.keyDetails.length ? `스크립트 안의 디테일 지식은 ${details.keyDetails.join(" / ")}입니다. 이 디테일을 그대로 복사하지 말고, 같은 논리 위치에 내 채널의 사례를 넣습니다.` : "스크립트 디테일이 부족하므로 제목, 썸네일, 수치 신호를 기준으로 패턴을 추정합니다.",
+    details.examples.length || details.numbers.length ? `근거로 쓸 만한 부분은 ${[...details.examples, ...details.numbers].join(" / ")}입니다.` : "근거와 사례는 추가 자료에서 보강해야 합니다.",
     "",
     `[SET 4. 내 채널 적용]`,
     `${profile.name || "내 채널"}에서는 이 패턴을 ${profile.audience || "내 시청자"}가 바로 이해할 수 있는 상황으로 바꿉니다.`,
+    `적용할 디테일: ${details.application}`,
     `기획안 반영: ${plan || "아직 수정한 기획안이 없습니다."}`,
     `피할 점: ${profile.avoid || "레퍼런스를 그대로 복제하지 않고 표현과 사례를 바꿉니다."}`,
     "",
@@ -589,6 +598,7 @@ function getReferenceContext(video) {
       metrics: "아직 선택된 레퍼런스 지표가 없습니다.",
       pattern: "성과가 난 주제/제목/썸네일 구조를 먼저 선택해야 합니다.",
       thumbnailInsight: "썸네일 분석을 위해 레퍼런스 영상을 선택하세요.",
+      scriptDetails: emptyScriptDetails(),
       corePromise: "성과가 난 패턴",
       titleFormula: "문제와 결과를 선명하게 제시하는 제목",
       summary: "아직 선택된 레퍼런스 영상이 없습니다.",
@@ -598,16 +608,85 @@ function getReferenceContext(video) {
   const titleFormula = inferTitleFormula(video.title);
   const pattern = inferReferencePattern(video, score);
   const thumbnailInsight = getThumbnailInsight(video);
+  const scriptDetails = extractScriptDetails(scriptInput.value.trim());
   return {
     title: video.title,
     channel: video.channel,
     metrics: `성과점수 ${score.total}점, 조회/구독자 ${score.viewRatio.toFixed(1)}배, 좋아요율 ${percent(score.likeRate)}, 댓글율 ${percent(score.commentRate)}`,
     pattern,
     thumbnailInsight,
+    scriptDetails,
     corePromise: inferCorePromise(video.title),
     titleFormula,
     summary: `"${video.title}"은 ${video.channel} 채널에서 ${score.viewRatio.toFixed(1)}배 조회/구독자 비율을 만든 레퍼런스입니다. ${pattern}`,
   };
+}
+
+function extractScriptDetails(text) {
+  if (!text) return emptyScriptDetails();
+  const sentences = splitSentences(text);
+  const hook = sentences[0] || "초반 훅을 확인할 수 없습니다.";
+  const numbers = pickSentences(sentences, [/\d/, /%/, /배/, /년/, /개월/, /주/, /일/, /분/, /초/], 4);
+  const examples = pickSentences(sentences, ["예를 들어", "예를들어", "사례", "경우", "실제로", "가령", "보면"], 4);
+  const warnings = pickSentences(sentences, ["문제", "실수", "주의", "하지 마", "안 됩니다", "안돼", "위험", "틀린", "잘못"], 4);
+  const claims = pickSentences(sentences, ["중요", "핵심", "이유", "왜냐", "결국", "반드시", "필요", "해야"], 4);
+  const keyDetails = rankDetailSentences(sentences, [...numbers, ...examples, ...warnings, ...claims], 6);
+  const summary = keyDetails.length
+    ? `레퍼런스 스크립트에서 ${keyDetails.length}개의 디테일 지식을 추출했습니다: ${keyDetails.slice(0, 3).join(" / ")}`
+    : "아직 붙여넣은 레퍼런스 스크립트가 없거나 디테일을 충분히 추출하지 못했습니다.";
+  const application = keyDetails.length
+    ? `핵심 디테일(${keyDetails.slice(0, 4).join(" / ")})의 역할을 유지하되, 표현과 사례는 내 채널 주제에 맞게 바꿉니다.`
+    : "레퍼런스 스크립트를 붙여넣으면 디테일 지식, 사례, 숫자 근거를 5-set에 반영합니다.";
+  return { hook, claims, keyDetails, examples, numbers, warnings, summary, application };
+}
+
+function emptyScriptDetails() {
+  return {
+    hook: "레퍼런스 스크립트가 아직 없습니다.",
+    claims: [],
+    keyDetails: [],
+    examples: [],
+    numbers: [],
+    warnings: [],
+    summary: "레퍼런스 스크립트를 붙여넣으면 디테일 지식과 사례를 추출해 기획안과 5-set 스크립트에 반영합니다.",
+    application: "스크립트 디테일이 없으므로 현재는 제목, 썸네일, 수치 신호만 사용합니다.",
+  };
+}
+
+function splitSentences(text) {
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?。！？])\s+|\n+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 8)
+    .slice(0, 160);
+}
+
+function pickSentences(sentences, patterns, limit) {
+  return sentences
+    .filter((sentence) =>
+      patterns.some((pattern) => (pattern instanceof RegExp ? pattern.test(sentence) : sentence.includes(pattern))),
+    )
+    .slice(0, limit);
+}
+
+function rankDetailSentences(sentences, alreadyPicked, limit) {
+  const picked = new Set(alreadyPicked);
+  const scored = sentences.map((sentence, index) => {
+    let score = 0;
+    if (/\d|%|배|년|개월|주|일|분|초/.test(sentence)) score += 3;
+    if (/예를 들어|사례|실제로|가령|경우/.test(sentence)) score += 3;
+    if (/중요|핵심|이유|문제|실수|주의|방법|원리|전략|단계/.test(sentence)) score += 2;
+    if (sentence.length >= 35 && sentence.length <= 180) score += 1;
+    if (picked.has(sentence)) score += 2;
+    return { sentence, score, index };
+  });
+  return scored
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.sentence)
+    .filter((sentence, index, arr) => arr.indexOf(sentence) === index)
+    .slice(0, limit);
 }
 
 function inferTitleFormula(title) {
