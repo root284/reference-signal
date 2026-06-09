@@ -357,7 +357,7 @@ function showVideoInsight(video) {
   `;
 }
 
-function analyzeScript() {
+async function analyzeScript() {
   const text = scriptInput.value.trim();
   if (!text) {
     scriptResultPanel.classList.add("is-visible");
@@ -371,6 +371,28 @@ function analyzeScript() {
       </ul>
     `;
     return;
+  }
+
+  if (isServerMode()) {
+    scriptAnalyzeButton.disabled = true;
+    scriptAnalyzeButton.textContent = "AI 요약 중...";
+    try {
+      const result = await aiRequest("/api/ai/summary", { script: text });
+      scriptResultPanel.classList.add("is-visible");
+      scriptResultPanel.innerHTML = `
+        <div class="panel-title">
+          <span>AI 스크립트 분석</span>
+          <h2>한글 내용 요약</h2>
+        </div>
+        <pre class="ai-output">${escapeHtml(result)}</pre>
+      `;
+      return;
+    } catch (error) {
+      statusMessage.textContent = `AI 요약 실패: ${error.message} 로컬 요약으로 표시합니다.`;
+    } finally {
+      scriptAnalyzeButton.disabled = false;
+      scriptAnalyzeButton.textContent = "스크립트 분석";
+    }
   }
 
   const summary = summarizeScript(text);
@@ -390,14 +412,37 @@ function analyzeScript() {
   `;
 }
 
-function generatePlan() {
+async function generatePlan() {
   const profile = getChannelProfile();
-  const concept = formatProfile(profile);
   const base = selectedVideo || currentResults[0];
   const reference = getReferenceContext(base);
   const planText = makePlanText(profile, reference);
   const titleCandidates = makeTitleCandidates(profile, reference);
   draftTitleInput.value = titleCandidates[0];
+
+  if (isServerMode()) {
+    generatePlanButton.disabled = true;
+    generatePlanButton.textContent = "AI 기획안 작성 중...";
+    try {
+      const result = await aiRequest("/api/ai/plan", makeAiPayload(profile, reference));
+      planPanel.classList.add("is-visible");
+      planPanel.innerHTML = `
+        <div class="panel-title">
+          <span>AI 기획안</span>
+          <h2>레퍼런스 기반 제작 방향</h2>
+        </div>
+        <pre class="ai-output">${escapeHtml(result)}</pre>
+      `;
+      editablePlanInput.value = result;
+      draftEditor.classList.add("is-visible");
+      return;
+    } catch (error) {
+      statusMessage.textContent = `AI 기획안 생성 실패: ${error.message} 로컬 기획안으로 표시합니다.`;
+    } finally {
+      generatePlanButton.disabled = false;
+      generatePlanButton.textContent = "기획안 만들기";
+    }
+  }
 
   planPanel.classList.add("is-visible");
   planPanel.innerHTML = `
@@ -525,7 +570,7 @@ function makeTitleCandidates(profile, reference) {
   ];
 }
 
-function generateScriptDraft() {
+async function generateScriptDraft() {
   const profile = getChannelProfile();
   const base = selectedVideo || currentResults[0];
   const reference = getReferenceContext(base);
@@ -535,6 +580,26 @@ function generateScriptDraft() {
   const sourceSentences = reference.scriptSentences;
   const materialSentences = splitSentences(materials);
   const draftSentences = uniqueSentences([...sourceSentences, ...materialSentences]);
+
+  if (isServerMode() && sourceSentences.length) {
+    generateScriptButton.disabled = true;
+    generateScriptButton.textContent = "AI 스크립트 작성 중...";
+    try {
+      const result = await aiRequest("/api/ai/script", makeAiPayload(profile, reference, {
+        title,
+        structure,
+        plan: editablePlanInput.value.trim(),
+        materials,
+      }));
+      showFinalDraft(result);
+      return;
+    } catch (error) {
+      statusMessage.textContent = `AI 스크립트 생성 실패: ${error.message} 원문 편집 초안으로 표시합니다.`;
+    } finally {
+      generateScriptButton.disabled = false;
+      generateScriptButton.textContent = "스크립트 초안 만들기";
+    }
+  }
 
   if (!draftSentences.length) {
     scriptDraftPanel.classList.add("is-visible");
@@ -554,6 +619,10 @@ function generateScriptDraft() {
     ...buildScriptSections(structure, draftSentences),
   ].join("\n");
 
+  showFinalDraft(draft);
+}
+
+function showFinalDraft(draft) {
   scriptDraftPanel.classList.add("is-visible");
   scriptDraftPanel.innerHTML = `
     <div class="panel-title">
@@ -568,6 +637,35 @@ function generateScriptDraft() {
   `;
   document.querySelector("#copyDraftButton").addEventListener("click", copyDraft);
   document.querySelector("#downloadDraftButton").addEventListener("click", downloadDraft);
+}
+
+function makeAiPayload(profile, reference, overrides = {}) {
+  return {
+    profile,
+    reference: {
+      title: reference.title,
+      channel: reference.channel,
+      metrics: reference.metrics,
+      titleFormula: reference.titleFormula,
+      thumbnailInsight: reference.thumbnailInsight,
+    },
+    script: scriptInput.value.trim(),
+    title: overrides.title || draftTitleInput.value.trim(),
+    structure: overrides.structure || scriptStructureInput.value,
+    plan: overrides.plan || editablePlanInput.value.trim(),
+    materials: overrides.materials || sourceMaterialInput.value.trim(),
+  };
+}
+
+async function aiRequest(path, payload) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "AI 요청에 실패했습니다.");
+  return data.result;
 }
 
 function recommendStructure(profile, reference) {

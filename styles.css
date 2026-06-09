@@ -580,6 +580,16 @@ select {
   line-height: 1.45;
 }
 
+.ai-output {
+  margin: 0;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .script-box {
   margin-bottom: 18px;
 }

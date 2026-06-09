@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 3000);
 const youtubeApiKey = process.env.YOUTUBE_API_KEY || "";
+const openaiApiKey = process.env.OPENAI_API_KEY || "";
+const openaiModel = process.env.OPENAI_MODEL || "gpt-5.5";
 const youtubeBase = "https://www.googleapis.com/youtube/v3";
 
 const mimeTypes = {
@@ -28,11 +30,16 @@ const server = createServer(async (request, response) => {
       return sendJson(response, 200, {
         ok: true,
         youtubeConfigured: Boolean(youtubeApiKey),
+        openaiConfigured: Boolean(openaiApiKey),
       });
     }
 
     if (request.method === "POST" && url.pathname === "/api/analyze") {
       return handleAnalyze(request, response);
+    }
+
+    if (request.method === "POST" && url.pathname.startsWith("/api/ai/")) {
+      return handleAi(request, response, url.pathname);
     }
 
     if (request.method !== "GET") {
@@ -49,6 +56,140 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Reference Signal is running on http://localhost:${port}`);
 });
+
+async function handleAi(request, response, pathname) {
+  if (!openaiApiKey) {
+    return sendJson(response, 503, { error: "OPENAI_API_KEY is not configured" });
+  }
+
+  const body = await readBody(request);
+  const tasks = {
+    "/api/ai/summary": buildSummaryPrompt,
+    "/api/ai/plan": buildPlanPrompt,
+    "/api/ai/script": buildScriptPrompt,
+  };
+  const buildPrompt = tasks[pathname];
+  if (!buildPrompt) return sendJson(response, 404, { error: "AI task not found" });
+
+  try {
+    const result = await openaiResponse(buildPrompt(body));
+    return sendJson(response, 200, { result, model: openaiModel });
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    return sendJson(response, 502, { error: error.message || "AI generation failed" });
+  }
+}
+
+function buildSummaryPrompt(body) {
+  return {
+    instructions: [
+      "You summarize video transcripts accurately.",
+      "Write in Korean even when the source transcript is in another language.",
+      "Do not invent facts, motives, events, or interpretations absent from the transcript.",
+      "Return plain text with exactly these headings: 전체 요약, 주요 내용, 내용 흐름, 마무리 내용.",
+    ].join("\n"),
+    input: `다음 스크립트를 한글로 요약하세요.\n\n${limitText(body.script, 100000)}`,
+    maxOutputTokens: 1800,
+  };
+}
+
+function buildPlanPrompt(body) {
+  return {
+    instructions: [
+      "You are a YouTube content strategist who works across all genres.",
+      "Create an original production plan grounded in the reference video and transcript.",
+      "Use relevant factual details and successful structural techniques, but do not copy distinctive wording.",
+      "Fit the target channel, audience, genre, format, and desired duration.",
+      "Write in Korean. Return a practical plan, not instructions about how to write a plan.",
+      "Include: 아이템 정의, 레퍼런스에서 가져올 요소, 새 영상의 관점, 구성안, 제목 후보 3개, 썸네일 방향, 추가 조사 필요사항.",
+    ].join("\n"),
+    input: makeAiContext(body),
+    maxOutputTokens: 3000,
+  };
+}
+
+function buildScriptPrompt(body) {
+  return {
+    instructions: [
+      "You are an experienced YouTube scriptwriter.",
+      "Write a complete, ready-to-read original script in Korean.",
+      "The result must be actual narration/dialogue, not a plan, outline, writing advice, or commentary about the reference.",
+      "Use the reference transcript's relevant facts, details, event sequence, and narrative techniques.",
+      "Do not copy distinctive wording or claim unsupported facts. Preserve uncertainty where the source is uncertain.",
+      "Follow the requested structure and target duration. Use natural paragraphs and section headings only when useful.",
+      "Do not mention performance scores, reference analysis, prompts, or that this script was generated from another video.",
+    ].join("\n"),
+    input: makeAiContext(body),
+    maxOutputTokens: 9000,
+  };
+}
+
+function makeAiContext(body) {
+  const profile = body.profile || {};
+  const reference = body.reference || {};
+  return [
+    "[목표 채널]",
+    `채널명: ${profile.name || "미정"}`,
+    `주제: ${profile.topic || "미정"}`,
+    `타깃: ${profile.audience || "미정"}`,
+    `톤앤매너: ${profile.tone || "미정"}`,
+    `피할 스타일: ${profile.avoid || "없음"}`,
+    `영상 유형: ${profile.format || "미정"}`,
+    `콘텐츠 포맷: ${profile.contentFormat || "미정"}`,
+    `목표 길이: ${profile.length || "미정"}`,
+    `추가 메모: ${profile.memo || "없음"}`,
+    "",
+    "[제작 요청]",
+    `제목: ${body.title || "추천 필요"}`,
+    `구성 방식: ${body.structure || "자동 추천"}`,
+    `사용자가 수정한 기획안: ${limitText(body.plan, 20000) || "없음"}`,
+    `추가 자료: ${limitText(body.materials, 50000) || "없음"}`,
+    "",
+    "[레퍼런스 영상]",
+    `제목: ${reference.title || "미정"}`,
+    `채널: ${reference.channel || "미정"}`,
+    `성과 신호: ${reference.metrics || "없음"}`,
+    `제목 구조: ${reference.titleFormula || "없음"}`,
+    `썸네일 참고점: ${reference.thumbnailInsight || "없음"}`,
+    "",
+    "[레퍼런스 스크립트 원문]",
+    limitText(body.script, 100000) || "없음",
+  ].join("\n");
+}
+
+async function openaiResponse({ instructions, input, maxOutputTokens }) {
+  const apiResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openaiApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: openaiModel,
+      instructions,
+      input,
+      reasoning: { effort: "low" },
+      text: { verbosity: "medium" },
+      max_output_tokens: maxOutputTokens,
+    }),
+  });
+  const data = await apiResponse.json();
+  if (!apiResponse.ok) {
+    throw new Error(data.error?.message || `OpenAI API error: ${apiResponse.status}`);
+  }
+  const outputText = (data.output || [])
+    .flatMap((item) => item.content || [])
+    .filter((content) => content.type === "output_text")
+    .map((content) => content.text)
+    .join("\n")
+    .trim();
+  if (!outputText) throw new Error("AI response did not contain text");
+  return outputText;
+}
+
+function limitText(value, maxLength) {
+  return String(value || "").trim().slice(0, maxLength);
+}
 
 async function handleAnalyze(request, response) {
   if (!youtubeApiKey) {

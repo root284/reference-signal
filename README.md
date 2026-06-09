@@ -7,6 +7,7 @@
 ```bash
 cp .env.example .env
 # .env에 YOUTUBE_API_KEY 입력
+# AI 기능을 사용하려면 OPENAI_API_KEY도 입력
 npm start
 ```
 
@@ -17,8 +18,10 @@ npm start
 1. GitHub 저장소에 이 폴더를 push합니다.
 2. Railway에서 `New Project` → `Deploy from GitHub repo`를 선택합니다.
 3. Variables에 `YOUTUBE_API_KEY`를 추가합니다.
-4. Railway가 `npm start`로 앱을 실행합니다.
-5. tools.qpola.net의 링크 모음에 Railway 배포 URL을 추가합니다.
+4. AI 분석/기획/스크립트 생성을 위해 `OPENAI_API_KEY`를 추가합니다.
+5. 선택적으로 `OPENAI_MODEL`을 추가합니다. 기본값은 `gpt-5.5`입니다.
+6. Railway가 `npm start`로 앱을 실행합니다.
+7. tools.qpola.net의 링크 모음에 Railway 배포 URL을 추가합니다.
 
 ## YouTube API 사용 범위
 
