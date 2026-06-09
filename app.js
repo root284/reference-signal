@@ -374,22 +374,22 @@ function analyzeScript() {
   }
 
   const details = extractScriptDetails(text);
-  const narrative = inferNarrativeSignals(text);
+  const universal = analyzeUniversalScript(text, details);
 
   scriptResultPanel.classList.add("is-visible");
   scriptResultPanel.innerHTML = `
     <div class="panel-title">
       <span>스크립트 분석</span>
-      <h2>디테일 추출</h2>
+      <h2>구성과 표현 장치</h2>
     </div>
     <ul class="insight-list">
-      <li><strong>초반 훅:</strong> ${escapeHtml(details.hook)}</li>
-      <li><strong>핵심 주장:</strong> ${escapeHtml(details.claims.join(" / ") || "명확한 주장 문장을 찾지 못했습니다.")}</li>
-      <li><strong>디테일 지식:</strong> ${escapeHtml(details.keyDetails.join(" / ") || "구체 디테일을 더 넣으면 좋습니다.")}</li>
-      <li><strong>사례/근거/숫자:</strong> ${escapeHtml([...details.examples, ...details.numbers].join(" / ") || "사례나 숫자 근거가 적습니다.")}</li>
-      <li><strong>주의/오해 포인트:</strong> ${escapeHtml(details.warnings.join(" / ") || "주의점이 뚜렷하게 드러나지 않습니다.")}</li>
-      <li><strong>서사·감정 장치:</strong> ${escapeHtml(narrative)}</li>
-      <li><strong>구성 활용:</strong> 추출한 디테일과 정보 공개 순서를 선택한 스크립트 구성 방식에 맞춰 반영합니다.</li>
+      <li><strong>도입 장치:</strong> ${escapeHtml(universal.opening)}</li>
+      <li><strong>핵심 장면·비트:</strong> ${escapeHtml(universal.beats.join(" / "))}</li>
+      <li><strong>구체성을 만드는 요소:</strong> ${escapeHtml(universal.concreteElements.join(" / "))}</li>
+      <li><strong>감정과 분위기 흐름:</strong> ${escapeHtml(universal.emotionalFlow)}</li>
+      <li><strong>전환·정보 공개 방식:</strong> ${escapeHtml(universal.transitions)}</li>
+      <li><strong>결말 효과:</strong> ${escapeHtml(universal.ending)}</li>
+      <li><strong>재사용 가능한 장치:</strong> ${escapeHtml(universal.reusableDevices)}</li>
     </ul>
   `;
 }
@@ -788,6 +788,64 @@ function inferNarrativeSignals(text) {
   if (/\d{4}년|당시|그날|다음 날|며칠 후|시간/.test(text)) signals.push("시간 순서로 신뢰와 진행감을 만듭니다");
   if (/목격|기록|사진|영상|증언|경찰|보고서/.test(text)) signals.push("기록과 증언을 근거 장치로 사용합니다");
   return signals.length ? signals.join(" / ") : "뚜렷한 서사 장치가 적어 정보 공개 순서와 전환 문장을 보강할 수 있습니다.";
+}
+
+function analyzeUniversalScript(text, details) {
+  const sentences = splitSentences(text);
+  const endingSentence = sentences[sentences.length - 1] || "결말 문장을 확인할 수 없습니다.";
+  const transitionSentences = pickSentences(
+    sentences,
+    ["그런데", "하지만", "그러나", "갑자기", "그 순간", "이후", "결국", "알고 보니", "사실은", "한편"],
+    4,
+  );
+  const sensorySentences = pickSentences(
+    sentences,
+    ["보였", "들렸", "느꼈", "냄새", "소리", "빛", "어둠", "표정", "장면", "모습", "목소리"],
+    4,
+  );
+  const questionSentences = sentences.filter((sentence) => /[?？]|왜|어떻게|무엇|과연|정말/.test(sentence)).slice(0, 3);
+  const beats = rankDetailSentences(sentences, [...transitionSentences, ...sensorySentences], 5);
+  const concreteElements = uniqueSentences([
+    ...sensorySentences,
+    ...details.examples,
+    ...details.numbers,
+    ...details.keyDetails,
+  ]).slice(0, 5);
+
+  const openingType = /[?？]|왜|어떻게|무엇|과연/.test(details.hook)
+    ? "질문으로 궁금증을 만듭니다"
+    : /갑자기|그 순간|사라|죽|발견|이상|충격/.test(details.hook)
+      ? "강한 사건이나 이상 징후를 먼저 제시합니다"
+      : "상황과 주제를 직접 제시합니다";
+
+  const endingEffect = /[?？]|왜|과연|아직|미스터리|알 수/.test(endingSentence)
+    ? "의문이나 미해결 정보를 남겨 여운과 댓글 반응을 유도합니다"
+    : /하세요|해보|추천|구독|댓글|확인/.test(endingSentence)
+      ? "시청자의 행동을 유도하며 마무리합니다"
+      : "핵심 상황이나 메시지를 정리하며 닫습니다";
+
+  const devices = [];
+  if (transitionSentences.length) devices.push("전환 문장으로 흐름을 바꾸는 방식");
+  if (questionSentences.length) devices.push("질문을 남겨 다음 내용을 기다리게 하는 방식");
+  if (sensorySentences.length) devices.push("감각적 묘사로 장면을 선명하게 만드는 방식");
+  if (details.numbers.length) devices.push("시간·수치·기록으로 구체성을 높이는 방식");
+  if (details.examples.length) devices.push("사례나 사건으로 추상적인 내용을 장면화하는 방식");
+
+  return {
+    opening: `${openingType}. 첫 문장: ${details.hook}`,
+    beats: beats.length ? beats : ["뚜렷한 핵심 장면이 적어 전환점이나 기억할 장면을 보강할 수 있습니다."],
+    concreteElements: concreteElements.length ? concreteElements : ["장소, 인물, 행동, 감각, 시간 같은 구체 요소를 보강할 수 있습니다."],
+    emotionalFlow: inferNarrativeSignals(text),
+    transitions: transitionSentences.length
+      ? transitionSentences.join(" / ")
+      : "뚜렷한 전환 문장이 적어 장면 변화나 정보 공개 시점을 더 분명하게 만들 수 있습니다.",
+    ending: `${endingEffect}. 마지막 문장: ${endingSentence}`,
+    reusableDevices: devices.length ? devices.join(" / ") : "도입, 전환, 구체 묘사, 결말 중 참고할 장치를 선택해 활용하세요.",
+  };
+}
+
+function uniqueSentences(sentences) {
+  return sentences.filter((sentence, index, list) => sentence && list.indexOf(sentence) === index);
 }
 
 function inferTitleFormula(title) {
