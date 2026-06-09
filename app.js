@@ -91,6 +91,7 @@ const generatePlanButton = document.querySelector("#generatePlanButton");
 const planPanel = document.querySelector("#planPanel");
 const draftEditor = document.querySelector("#draftEditor");
 const draftTitleInput = document.querySelector("#draftTitleInput");
+const scriptStructureInput = document.querySelector("#scriptStructureInput");
 const editablePlanInput = document.querySelector("#editablePlanInput");
 const sourceMaterialInput = document.querySelector("#sourceMaterialInput");
 const generateScriptButton = document.querySelector("#generateScriptButton");
@@ -347,10 +348,11 @@ function showVideoInsight(video) {
   insightPanel.innerHTML = `
     <ul class="insight-list">
       <li><strong>왜 튀었나:</strong> 조회/구독자 비율이 ${score.viewRatio.toFixed(1)}배입니다. 기존 구독자 밖으로 확산됐을 가능성이 큽니다.</li>
-      <li><strong>제목 패턴:</strong> "${escapeHtml(video.title)}"는 결과, 문제, 방법 중 하나를 선명하게 잡고 있습니다. 내 채널에서는 같은 구조에 다른 소재를 넣는 방식이 좋습니다.</li>
-      <li><strong>썸네일 분석:</strong> ${escapeHtml(getThumbnailInsight(video))}</li>
-      <li><strong>반응 품질:</strong> 좋아요율 ${percent(score.likeRate)}, 댓글율 ${percent(score.commentRate)}입니다. 조회수만 높은 영상인지, 시청자 반응까지 좋은 영상인지 함께 봐야 합니다.</li>
-      <li><strong>다음 액션:</strong> 스크립트가 있으면 붙여넣어 훅과 전개 구조를 분석하고, 없으면 제목/썸네일/아이템 관점만 먼저 가져가세요.</li>
+      <li><strong>아이템:</strong> "${escapeHtml(video.title)}"이 어떤 궁금증·욕구·감정을 건드리는지 확인하고, 소재 자체의 확장성을 판단하세요.</li>
+      <li><strong>패키징:</strong> ${escapeHtml(inferTitleFormula(video.title))} / ${escapeHtml(getThumbnailInsight(video))}</li>
+      <li><strong>서사·구성:</strong> 스크립트를 넣으면 정보 공개 순서, 긴장 상승, 전환 지점, 결말 방식까지 분석합니다.</li>
+      <li><strong>반응 품질:</strong> 좋아요율 ${percent(score.likeRate)}, 댓글율 ${percent(score.commentRate)}입니다. 조회수뿐 아니라 만족·토론·공유 가능성을 함께 봅니다.</li>
+      <li><strong>활용 가능성:</strong> 아이템, 패키징, 구성, 디테일 중 어떤 요소를 참고할지 선택하고 고유 표현은 그대로 복제하지 않는 것이 좋습니다.</li>
     </ul>
   `;
 }
@@ -372,6 +374,7 @@ function analyzeScript() {
   }
 
   const details = extractScriptDetails(text);
+  const narrative = inferNarrativeSignals(text);
 
   scriptResultPanel.classList.add("is-visible");
   scriptResultPanel.innerHTML = `
@@ -385,7 +388,8 @@ function analyzeScript() {
       <li><strong>디테일 지식:</strong> ${escapeHtml(details.keyDetails.join(" / ") || "구체 디테일을 더 넣으면 좋습니다.")}</li>
       <li><strong>사례/근거/숫자:</strong> ${escapeHtml([...details.examples, ...details.numbers].join(" / ") || "사례나 숫자 근거가 적습니다.")}</li>
       <li><strong>주의/오해 포인트:</strong> ${escapeHtml(details.warnings.join(" / ") || "주의점이 뚜렷하게 드러나지 않습니다.")}</li>
-      <li><strong>5-set 적용:</strong> 이 디테일을 SET 2 문제 확대, SET 3 레퍼런스 해체, SET 4 내 채널 적용에 나눠 반영합니다.</li>
+      <li><strong>서사·감정 장치:</strong> ${escapeHtml(narrative)}</li>
+      <li><strong>구성 활용:</strong> 추출한 디테일과 정보 공개 순서를 선택한 스크립트 구성 방식에 맞춰 반영합니다.</li>
     </ul>
   `;
 }
@@ -410,8 +414,8 @@ function generatePlan() {
       <p>${titleCandidates.map(escapeHtml).join(" / ")}</p>
     </div>
     <div class="plan-card">
-      <h3>5-set 구성</h3>
-      <p>SET 1 훅, SET 2 문제 확대, SET 3 레퍼런스 패턴 해체, SET 4 내 채널 적용, SET 5 실행/마무리 순서로 작성합니다.</p>
+      <h3>추천 구성 방식</h3>
+      <p>${escapeHtml(recommendStructure(profile, reference))}. Step 4에서 다른 구성 방식으로 변경할 수 있습니다.</p>
     </div>
     <div class="plan-card">
       <h3>스크립트 디테일 적용</h3>
@@ -495,12 +499,9 @@ function makePlanText(profile, reference) {
     "썸네일 방향: 제목을 반복하지 말고 전후 대비, 결과물, 금지/실수 신호 중 하나로 압축한다.",
     `디테일 적용 방향: ${reference.scriptDetails.application}`,
     "",
-    `[5-set 구성]`,
-    "SET 1 훅: 시청자가 이미 겪는 문제를 짧게 찌르고, 영상에서 얻을 결과를 약속한다.",
-    "SET 2 문제 확대: 왜 이 문제가 반복되는지 흔한 오해/실패 패턴을 보여준다.",
-    "SET 3 레퍼런스 패턴 해체: 레퍼런스 영상이 잘 된 이유를 제목/아이템/썸네일/반응 지표 기준으로 분해한다.",
-    "SET 4 내 채널 적용: 같은 패턴을 내 채널 주제와 타깃에 맞게 바꾸는 방법을 제안한다.",
-    "SET 5 실행/마무리: 바로 적용할 체크리스트와 다음 행동을 제시한다.",
+    `[추천 구성]`,
+    `${recommendStructure(profile, reference)}`,
+    "최종 구성 방식은 Step 4에서 선택하며, 심화분석 결과는 특정 구성법에 종속되지 않는다.",
     `추가 메모: ${profile.memo || "없음"}`,
   ].join("\n");
 }
@@ -536,42 +537,18 @@ function generateScriptDraft() {
   const plan = editablePlanInput.value.trim();
   const materials = sourceMaterialInput.value.trim();
   const details = reference.scriptDetails;
+  const structure = resolveScriptStructure(profile, reference);
   const draft = [
     `[스크립트 초안]`,
     `제목: ${title}`,
     `영상 길이 유형: ${profile.format}`,
     `콘텐츠 포맷: ${profile.contentFormat}`,
     `목표 길이: ${profile.length}`,
+    `구성 방식: ${structure}`,
     `레퍼런스: ${reference.title}`,
     `레퍼런스 성과 신호: ${reference.metrics}`,
     "",
-    `[SET 1. 훅]`,
-    `${profile.audience || "시청자"}가 이미 겪고 있는 문제를 먼저 짚습니다. 레퍼런스는 "${details.hook}"로 시작하며, 이 훅의 역할은 시청자의 문제를 즉시 특정하는 것입니다. 내 영상에서는 같은 역할을 ${profile.topic || "내 주제"}의 상황으로 바꿔 시작합니다.`,
-    "",
-    `[SET 2. 문제 확대]`,
-    `많은 사람이 ${profile.topic || "이 주제"} 콘텐츠를 만들 때 주제만 따라 합니다. 하지만 레퍼런스 스크립트의 문제 제기는 ${details.claims.join(" / ") || reference.corePromise}에 있습니다. 이 주장을 내 채널에서는 "${profile.audience || "시청자"}가 왜 이 문제를 반복하는가"로 확장합니다.`,
-    details.warnings.length ? `주의점으로는 ${details.warnings.join(" / ")}를 변환해 사용합니다.` : "주의점은 내 채널에서 흔히 하는 실수나 오해로 직접 보강합니다.",
-    "",
-    `[SET 3. 레퍼런스 패턴 해체]`,
-    `레퍼런스 영상은 ${reference.metrics}라는 신호를 보였습니다. 여기서 볼 포인트는 세 가지입니다.`,
-    `첫째, 제목은 ${reference.titleFormula} 구조입니다.`,
-    `둘째, 썸네일은 ${reference.thumbnailInsight}`,
-    `셋째, 아이템은 ${reference.pattern}`,
-    details.keyDetails.length ? `스크립트 안의 디테일 지식은 ${details.keyDetails.join(" / ")}입니다. 이 디테일을 그대로 복사하지 말고, 같은 논리 위치에 내 채널의 사례를 넣습니다.` : "스크립트 디테일이 부족하므로 제목, 썸네일, 수치 신호를 기준으로 패턴을 추정합니다.",
-    details.examples.length || details.numbers.length ? `근거로 쓸 만한 부분은 ${[...details.examples, ...details.numbers].join(" / ")}입니다.` : "근거와 사례는 추가 자료에서 보강해야 합니다.",
-    "",
-    `[SET 4. 내 채널 적용]`,
-    `${profile.name || "내 채널"}에서는 이 패턴을 ${profile.audience || "내 시청자"}가 바로 이해할 수 있는 상황으로 바꿉니다.`,
-    `적용할 디테일: ${details.application}`,
-    `기획안 반영: ${plan || "아직 수정한 기획안이 없습니다."}`,
-    `피할 점: ${profile.avoid || "레퍼런스를 그대로 복제하지 않고 표현과 사례를 바꿉니다."}`,
-    "",
-    `[SET 5. 실행/마무리]`,
-    `마지막에는 시청자가 바로 적용할 체크리스트를 줍니다. 예를 들어 제목의 약속, 썸네일의 대비, 첫 10초의 문제 제기, 중간 전환 질문, 마무리 행동 제안을 하나씩 점검하게 합니다.`,
-    materials ? `추가 자료 반영: ${materials}` : "추가 자료가 없으므로 레퍼런스 분석과 채널 설정만 바탕으로 마무리합니다.",
-    "",
-    `[엔딩 멘트]`,
-    `오늘은 "${reference.title}"에서 성과가 난 구조를 ${profile.topic || "내 주제"}에 맞게 바꾸는 방법을 봤습니다. 다음 영상에서는 이 구조를 실제 아이템 하나에 적용해서 제목과 썸네일까지 같이 만들어보겠습니다.`,
+    ...buildScriptSections(structure, profile, reference, plan, materials),
   ].join("\n");
 
   scriptDraftPanel.classList.add("is-visible");
@@ -588,6 +565,120 @@ function generateScriptDraft() {
   `;
   document.querySelector("#copyDraftButton").addEventListener("click", copyDraft);
   document.querySelector("#downloadDraftButton").addEventListener("click", downloadDraft);
+}
+
+function recommendStructure(profile, reference) {
+  const context = `${profile.topic} ${profile.contentFormat} ${reference.title}`.toLowerCase();
+  if (/괴담|미스터리|공포|사건|실화|범죄|스토리/.test(context)) {
+    return "스토리텔링/괴담: 이상 징후 → 배경과 단서 → 긴장 상승 → 핵심 사건 → 해석과 여운";
+  }
+  if (/다큐|역사|사건 재구성/.test(context)) {
+    return "다큐멘터리/사건 재구성: 핵심 장면 → 배경 → 시간순 사건 → 쟁점 → 현재적 의미";
+  }
+  if (/튜토리얼|따라하기|방법/.test(context)) {
+    return "튜토리얼: 결과 예고 → 준비 → 단계별 실행 → 흔한 실수 → 완성 결과";
+  }
+  if (/리스트|체크리스트/.test(context)) {
+    return "리스트형: 선정 기준 → 항목별 설명 → 우선순위 → 요약";
+  }
+  return "문제 해결형: 문제 상황 → 원인 → 핵심 인사이트 → 적용 방법 → 정리";
+}
+
+function resolveScriptStructure(profile, reference) {
+  if (scriptStructureInput.value !== "자동 추천") return scriptStructureInput.value;
+  const recommended = recommendStructure(profile, reference);
+  if (recommended.startsWith("스토리텔링/괴담")) return "스토리텔링/괴담";
+  if (recommended.startsWith("다큐멘터리")) return "다큐멘터리/사건 재구성";
+  if (recommended.startsWith("튜토리얼")) return "튜토리얼";
+  if (recommended.startsWith("리스트형")) return "리스트형";
+  return "문제 해결형";
+}
+
+function buildScriptSections(structure, profile, reference, plan, materials) {
+  const details = reference.scriptDetails;
+  const topic = profile.topic || "이 주제";
+  const audience = profile.audience || "시청자";
+  const detailText = details.keyDetails.join(" / ") || reference.pattern;
+  const evidenceText = [...details.examples, ...details.numbers].join(" / ") || materials || "추가 자료로 근거를 보강합니다.";
+  const warningText = details.warnings.join(" / ") || "레퍼런스의 고유 표현과 사례를 그대로 복제하지 않습니다.";
+
+  if (structure === "스토리텔링/괴담") {
+    return [
+      `[1. 이상 징후와 콜드 오픈]`,
+      `가장 설명하기 어려운 순간이나 불길한 단서를 먼저 보여줍니다. 레퍼런스 훅 "${details.hook}"이 정보를 한 번에 다 주지 않는 방식을 참고하되, ${topic}에 맞는 새로운 장면으로 시작합니다.`,
+      "",
+      `[2. 배경과 정상 상태]`,
+      `사건이 벌어지기 전 장소, 인물, 시간, 규칙을 짧게 정리합니다. ${audience}가 이후의 이상함을 느낄 수 있도록 평범한 상태를 먼저 세웁니다.`,
+      "",
+      `[3. 단서 배치와 긴장 상승]`,
+      `레퍼런스에서 추출한 디테일(${detailText})의 역할을 참고해 감각 정보, 목격담, 기록, 반복되는 이상 징후를 단계적으로 배치합니다. 근거 후보: ${evidenceText}`,
+      "",
+      `[4. 핵심 사건과 해석]`,
+      `가장 강한 사건을 공개하되 모든 의문을 한 번에 해소하지 않습니다. 서로 가능한 해석을 나란히 두고, ${warningText}`,
+      "",
+      `[5. 결말과 여운]`,
+      `처음의 단서로 돌아가 의미를 바꾸거나, 아직 설명되지 않은 한 가지를 남겨 댓글과 재시청을 유도합니다.`,
+      `기획안 반영: ${plan || "기획안의 사건과 관점을 여기에 반영합니다."}`,
+    ];
+  }
+
+  if (structure === "다큐멘터리/사건 재구성") {
+    return [
+      `[1. 핵심 장면]`, `${reference.title}에서 가장 중요한 질문을 먼저 제시합니다.`,
+      "", `[2. 배경]`, `인물, 장소, 시대적 맥락과 필요한 디테일을 설명합니다: ${detailText}`,
+      "", `[3. 사건 재구성]`, `확인 가능한 사실과 시간순 사건을 구분해 전개합니다. 근거 후보: ${evidenceText}`,
+      "", `[4. 쟁점과 해석]`, `서로 다른 해석과 불확실성을 분리합니다. 주의점: ${warningText}`,
+      "", `[5. 현재적 의미]`, `${audience}가 이 사건에서 생각해볼 질문과 여운으로 마무리합니다.`,
+    ];
+  }
+
+  if (structure === "튜토리얼") {
+    return [
+      `[1. 완성 결과 예고]`, `${topic}을 적용한 뒤 얻을 결과를 먼저 보여줍니다.`,
+      "", `[2. 준비와 조건]`, `필요한 전제와 디테일을 정리합니다: ${detailText}`,
+      "", `[3. 단계별 실행]`, `각 단계를 따라 할 수 있는 행동 단위로 설명합니다. 근거 후보: ${evidenceText}`,
+      "", `[4. 흔한 실수]`, `${warningText}`,
+      "", `[5. 결과 확인]`, `완료 기준과 다음 행동을 제시합니다.`,
+    ];
+  }
+
+  if (structure === "리스트형") {
+    return [
+      `[도입]`, `${audience}에게 이 목록이 필요한 이유와 선정 기준을 설명합니다.`,
+      "", `[핵심 목록]`, `${detailText}`,
+      "", `[사례와 근거]`, `${evidenceText}`,
+      "", `[우선순위]`, `무엇부터 적용할지 판단 기준을 줍니다.`,
+      "", `[요약]`, `가장 중요한 항목 하나를 다시 강조합니다.`,
+    ];
+  }
+
+  if (structure === "5-set") {
+    return [
+      `[SET 1. 훅]`, `${details.hook}`,
+      "", `[SET 2. 문제 확대]`, `${details.claims.join(" / ") || reference.corePromise}`,
+      "", `[SET 3. 디테일과 근거]`, `${detailText} / ${evidenceText}`,
+      "", `[SET 4. 내 채널 적용]`, `${profile.name || "내 채널"}의 ${topic}에 맞게 변환합니다. ${plan}`,
+      "", `[SET 5. 실행/마무리]`, `핵심 내용을 요약하고 다음 행동을 제안합니다.`,
+    ];
+  }
+
+  if (structure === "문제 해결형") {
+    return [
+      `[1. 문제 상황]`, `${audience}가 ${topic}에서 겪는 문제를 구체적인 장면으로 보여줍니다.`,
+      "", `[2. 원인]`, `${details.claims.join(" / ") || reference.corePromise}`,
+      "", `[3. 핵심 인사이트]`, `${detailText}`,
+      "", `[4. 적용 방법]`, `${plan || `${profile.name || "내 채널"}에 맞게 사례와 행동 단계로 변환합니다.`}`,
+      "", `[5. 정리]`, `근거(${evidenceText})와 주의점(${warningText})을 짧게 정리하고 다음 행동을 제안합니다.`,
+    ];
+  }
+
+  return [
+    `[도입]`, `${details.hook}`,
+    "", `[핵심 전개]`, `${detailText}`,
+    "", `[사례와 근거]`, `${evidenceText}`,
+    "", `[주의점]`, `${warningText}`,
+    "", `[마무리]`, `${audience}가 기억할 핵심과 다음 행동을 제시합니다.`,
+  ];
 }
 
 function getReferenceContext(video) {
@@ -636,7 +727,7 @@ function extractScriptDetails(text) {
     : "아직 붙여넣은 레퍼런스 스크립트가 없거나 디테일을 충분히 추출하지 못했습니다.";
   const application = keyDetails.length
     ? `핵심 디테일(${keyDetails.slice(0, 4).join(" / ")})의 역할을 유지하되, 표현과 사례는 내 채널 주제에 맞게 바꿉니다.`
-    : "레퍼런스 스크립트를 붙여넣으면 디테일 지식, 사례, 숫자 근거를 5-set에 반영합니다.";
+    : "레퍼런스 스크립트를 붙여넣으면 디테일 지식, 사례, 숫자 근거를 선택한 구성 방식에 반영합니다.";
   return { hook, claims, keyDetails, examples, numbers, warnings, summary, application };
 }
 
@@ -648,16 +739,15 @@ function emptyScriptDetails() {
     examples: [],
     numbers: [],
     warnings: [],
-    summary: "레퍼런스 스크립트를 붙여넣으면 디테일 지식과 사례를 추출해 기획안과 5-set 스크립트에 반영합니다.",
+    summary: "레퍼런스 스크립트를 붙여넣으면 디테일 지식과 사례를 추출해 기획안과 선택한 스크립트 구성에 반영합니다.",
     application: "스크립트 디테일이 없으므로 현재는 제목, 썸네일, 수치 신호만 사용합니다.",
   };
 }
 
 function splitSentences(text) {
   return text
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?。！？])\s+|\n+/)
-    .map((item) => item.trim())
+    .split(/\n+|(?<=[.!?。！？])\s+/)
+    .map((item) => item.replace(/\s+/g, " ").trim())
     .filter((item) => item.length >= 8)
     .slice(0, 160);
 }
@@ -687,6 +777,17 @@ function rankDetailSentences(sentences, alreadyPicked, limit) {
     .map((item) => item.sentence)
     .filter((sentence, index, arr) => arr.indexOf(sentence) === index)
     .slice(0, limit);
+}
+
+function inferNarrativeSignals(text) {
+  if (!text) return "스크립트를 넣으면 긴장 상승, 반전, 정보 공개 순서, 감정 장치를 분석합니다.";
+  const signals = [];
+  if (/그런데|하지만|그러나|갑자기|그 순간|알고 보니|사실은/.test(text)) signals.push("전환 또는 반전 문장을 사용합니다");
+  if (/이상|불안|두려|무서|소름|정체|흔적|사라/.test(text)) signals.push("불안감과 미확인 정보를 활용합니다");
+  if (/왜|어떻게|무엇|과연|정말/.test(text)) signals.push("질문을 남겨 다음 정보를 기다리게 합니다");
+  if (/\d{4}년|당시|그날|다음 날|며칠 후|시간/.test(text)) signals.push("시간 순서로 신뢰와 진행감을 만듭니다");
+  if (/목격|기록|사진|영상|증언|경찰|보고서/.test(text)) signals.push("기록과 증언을 근거 장치로 사용합니다");
+  return signals.length ? signals.join(" / ") : "뚜렷한 서사 장치가 적어 정보 공개 순서와 전환 문장을 보강할 수 있습니다.";
 }
 
 function inferTitleFormula(title) {
@@ -863,6 +964,7 @@ function saveSession() {
     type: selectedType,
     script: scriptInput.value,
     draftTitle: draftTitleInput.value,
+    scriptStructure: scriptStructureInput.value,
     editablePlan: editablePlanInput.value,
     sourceMaterial: sourceMaterialInput.value,
     profile: getChannelProfile(),
@@ -903,6 +1005,7 @@ function loadSession() {
     });
     scriptInput.value = session.script || "";
     draftTitleInput.value = session.draftTitle || "";
+    scriptStructureInput.value = session.scriptStructure || "자동 추천";
     editablePlanInput.value = session.editablePlan || "";
     sourceMaterialInput.value = session.sourceMaterial || "";
     setChannelProfile(session.profile || {});
