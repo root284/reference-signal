@@ -530,21 +530,28 @@ function generateScriptDraft() {
   const base = selectedVideo || currentResults[0];
   const reference = getReferenceContext(base);
   const title = draftTitleInput.value.trim() || makeTitleCandidates(profile, reference)[0];
-  const plan = editablePlanInput.value.trim();
   const materials = sourceMaterialInput.value.trim();
-  const details = reference.scriptDetails;
   const structure = resolveScriptStructure(profile, reference);
+  const sourceSentences = reference.scriptSentences;
+  const materialSentences = splitSentences(materials);
+  const draftSentences = uniqueSentences([...sourceSentences, ...materialSentences]);
+
+  if (!draftSentences.length) {
+    scriptDraftPanel.classList.add("is-visible");
+    scriptDraftPanel.innerHTML = `
+      <div class="panel-title">
+        <span>초안 생성 불가</span>
+        <h2>레퍼런스 스크립트가 필요합니다</h2>
+      </div>
+      <p>내용이 없는 가짜 스크립트를 만들지 않도록 중단했습니다. Step 2에 레퍼런스 스크립트를 붙여넣은 뒤 다시 시도하세요.</p>
+    `;
+    return;
+  }
+
   const draft = [
-    `[스크립트 초안]`,
     `제목: ${title}`,
-    `영상 길이 유형: ${profile.format}`,
-    `콘텐츠 포맷: ${profile.contentFormat}`,
-    `목표 길이: ${profile.length}`,
-    `구성 방식: ${structure}`,
-    `레퍼런스: ${reference.title}`,
-    `레퍼런스 성과 신호: ${reference.metrics}`,
     "",
-    ...buildScriptSections(structure, profile, reference, plan, materials),
+    ...buildScriptSections(structure, draftSentences),
   ].join("\n");
 
   scriptDraftPanel.classList.add("is-visible");
@@ -590,91 +597,49 @@ function resolveScriptStructure(profile, reference) {
   return "문제 해결형";
 }
 
-function buildScriptSections(structure, profile, reference, plan, materials) {
-  const details = reference.scriptDetails;
-  const topic = profile.topic || "이 주제";
-  const audience = profile.audience || "시청자";
-  const detailText = details.keyDetails.join(" / ") || reference.pattern;
-  const evidenceText = [...details.examples, ...details.numbers].join(" / ") || materials || "추가 자료로 근거를 보강합니다.";
-  const warningText = details.warnings.join(" / ") || "레퍼런스의 고유 표현과 사례를 그대로 복제하지 않습니다.";
+function buildScriptSections(structure, sourceSentences) {
+  const labels = getStructureLabels(structure);
+  const chunks = divideSentences(sourceSentences, labels.length);
+  const output = [];
 
-  if (structure === "스토리텔링/괴담") {
-    return [
-      `[1. 이상 징후와 콜드 오픈]`,
-      `가장 설명하기 어려운 순간이나 불길한 단서를 먼저 보여줍니다. 레퍼런스 훅 "${details.hook}"이 정보를 한 번에 다 주지 않는 방식을 참고하되, ${topic}에 맞는 새로운 장면으로 시작합니다.`,
-      "",
-      `[2. 배경과 정상 상태]`,
-      `사건이 벌어지기 전 장소, 인물, 시간, 규칙을 짧게 정리합니다. ${audience}가 이후의 이상함을 느낄 수 있도록 평범한 상태를 먼저 세웁니다.`,
-      "",
-      `[3. 단서 배치와 긴장 상승]`,
-      `레퍼런스에서 추출한 디테일(${detailText})의 역할을 참고해 감각 정보, 목격담, 기록, 반복되는 이상 징후를 단계적으로 배치합니다. 근거 후보: ${evidenceText}`,
-      "",
-      `[4. 핵심 사건과 해석]`,
-      `가장 강한 사건을 공개하되 모든 의문을 한 번에 해소하지 않습니다. 서로 가능한 해석을 나란히 두고, ${warningText}`,
-      "",
-      `[5. 결말과 여운]`,
-      `처음의 단서로 돌아가 의미를 바꾸거나, 아직 설명되지 않은 한 가지를 남겨 댓글과 재시청을 유도합니다.`,
-      `기획안 반영: ${plan || "기획안의 사건과 관점을 여기에 반영합니다."}`,
-    ];
+  chunks.forEach((chunk, index) => {
+    if (!chunk.length) return;
+    output.push(`[${labels[index]}]`);
+    output.push(joinAsParagraphs(chunk));
+    output.push("");
+  });
+
+  return output;
+}
+
+function getStructureLabels(structure) {
+  const labels = {
+    "스토리텔링/괴담": ["콜드 오픈", "배경과 인물", "단서와 긴장 상승", "핵심 사건", "결말과 여운"],
+    "다큐멘터리/사건 재구성": ["핵심 장면", "배경", "사건 전개", "쟁점", "결말"],
+    "문제 해결형": ["문제 상황", "원인", "핵심 내용", "해결 과정", "정리"],
+    튜토리얼: ["결과 예고", "준비", "실행 과정", "주의점", "완성"],
+    리스트형: ["도입", "항목 1", "항목 2", "항목 3", "정리"],
+    "5-set": ["SET 1", "SET 2", "SET 3", "SET 4", "SET 5"],
+    "자유 구성": ["도입", "전개 1", "전개 2", "전개 3", "마무리"],
+  };
+  return labels[structure] || labels["자유 구성"];
+}
+
+function divideSentences(sentences, sectionCount) {
+  const chunks = Array.from({ length: Math.min(sectionCount, sentences.length) }, () => []);
+  sentences.forEach((sentence, index) => {
+    const chunkIndex = Math.min(Math.floor((index / sentences.length) * chunks.length), chunks.length - 1);
+    chunks[chunkIndex].push(sentence);
+  });
+  return chunks;
+}
+
+function joinAsParagraphs(sentences) {
+  const paragraphs = [];
+  for (let index = 0; index < sentences.length; index += 3) {
+    paragraphs.push(sentences.slice(index, index + 3).join(" "));
   }
-
-  if (structure === "다큐멘터리/사건 재구성") {
-    return [
-      `[1. 핵심 장면]`, `${reference.title}에서 가장 중요한 질문을 먼저 제시합니다.`,
-      "", `[2. 배경]`, `인물, 장소, 시대적 맥락과 필요한 디테일을 설명합니다: ${detailText}`,
-      "", `[3. 사건 재구성]`, `확인 가능한 사실과 시간순 사건을 구분해 전개합니다. 근거 후보: ${evidenceText}`,
-      "", `[4. 쟁점과 해석]`, `서로 다른 해석과 불확실성을 분리합니다. 주의점: ${warningText}`,
-      "", `[5. 현재적 의미]`, `${audience}가 이 사건에서 생각해볼 질문과 여운으로 마무리합니다.`,
-    ];
-  }
-
-  if (structure === "튜토리얼") {
-    return [
-      `[1. 완성 결과 예고]`, `${topic}을 적용한 뒤 얻을 결과를 먼저 보여줍니다.`,
-      "", `[2. 준비와 조건]`, `필요한 전제와 디테일을 정리합니다: ${detailText}`,
-      "", `[3. 단계별 실행]`, `각 단계를 따라 할 수 있는 행동 단위로 설명합니다. 근거 후보: ${evidenceText}`,
-      "", `[4. 흔한 실수]`, `${warningText}`,
-      "", `[5. 결과 확인]`, `완료 기준과 다음 행동을 제시합니다.`,
-    ];
-  }
-
-  if (structure === "리스트형") {
-    return [
-      `[도입]`, `${audience}에게 이 목록이 필요한 이유와 선정 기준을 설명합니다.`,
-      "", `[핵심 목록]`, `${detailText}`,
-      "", `[사례와 근거]`, `${evidenceText}`,
-      "", `[우선순위]`, `무엇부터 적용할지 판단 기준을 줍니다.`,
-      "", `[요약]`, `가장 중요한 항목 하나를 다시 강조합니다.`,
-    ];
-  }
-
-  if (structure === "5-set") {
-    return [
-      `[SET 1. 훅]`, `${details.hook}`,
-      "", `[SET 2. 문제 확대]`, `${details.claims.join(" / ") || reference.corePromise}`,
-      "", `[SET 3. 디테일과 근거]`, `${detailText} / ${evidenceText}`,
-      "", `[SET 4. 내 채널 적용]`, `${profile.name || "내 채널"}의 ${topic}에 맞게 변환합니다. ${plan}`,
-      "", `[SET 5. 실행/마무리]`, `핵심 내용을 요약하고 다음 행동을 제안합니다.`,
-    ];
-  }
-
-  if (structure === "문제 해결형") {
-    return [
-      `[1. 문제 상황]`, `${audience}가 ${topic}에서 겪는 문제를 구체적인 장면으로 보여줍니다.`,
-      "", `[2. 원인]`, `${details.claims.join(" / ") || reference.corePromise}`,
-      "", `[3. 핵심 인사이트]`, `${detailText}`,
-      "", `[4. 적용 방법]`, `${plan || `${profile.name || "내 채널"}에 맞게 사례와 행동 단계로 변환합니다.`}`,
-      "", `[5. 정리]`, `근거(${evidenceText})와 주의점(${warningText})을 짧게 정리하고 다음 행동을 제안합니다.`,
-    ];
-  }
-
-  return [
-    `[도입]`, `${details.hook}`,
-    "", `[핵심 전개]`, `${detailText}`,
-    "", `[사례와 근거]`, `${evidenceText}`,
-    "", `[주의점]`, `${warningText}`,
-    "", `[마무리]`, `${audience}가 기억할 핵심과 다음 행동을 제시합니다.`,
-  ];
+  return paragraphs.join("\n\n");
 }
 
 function getReferenceContext(video) {
@@ -686,6 +651,7 @@ function getReferenceContext(video) {
       pattern: "성과가 난 주제/제목/썸네일 구조를 먼저 선택해야 합니다.",
       thumbnailInsight: "썸네일 분석을 위해 레퍼런스 영상을 선택하세요.",
       scriptDetails: emptyScriptDetails(),
+      scriptSentences: [],
       corePromise: "성과가 난 패턴",
       titleFormula: "문제와 결과를 선명하게 제시하는 제목",
       summary: "아직 선택된 레퍼런스 영상이 없습니다.",
@@ -695,7 +661,8 @@ function getReferenceContext(video) {
   const titleFormula = inferTitleFormula(video.title);
   const pattern = inferReferencePattern(video, score);
   const thumbnailInsight = getThumbnailInsight(video);
-  const scriptDetails = extractScriptDetails(scriptInput.value.trim());
+  const scriptText = scriptInput.value.trim();
+  const scriptDetails = extractScriptDetails(scriptText);
   return {
     title: video.title,
     channel: video.channel,
@@ -703,6 +670,7 @@ function getReferenceContext(video) {
     pattern,
     thumbnailInsight,
     scriptDetails,
+    scriptSentences: splitSentences(scriptText),
     corePromise: inferCorePromise(video.title),
     titleFormula,
     summary: `"${video.title}"은 ${video.channel} 채널에서 ${score.viewRatio.toFixed(1)}배 조회/구독자 비율을 만든 레퍼런스입니다. ${pattern}`,
@@ -745,7 +713,7 @@ function splitSentences(text) {
     .split(/\n+|(?<=[.!?。！？])\s+/)
     .map((item) => item.replace(/\s+/g, " ").trim())
     .filter((item) => item.length >= 8)
-    .slice(0, 160);
+    .slice(0, 1000);
 }
 
 function pickSentences(sentences, patterns, limit) {
