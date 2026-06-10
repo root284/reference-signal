@@ -69,33 +69,11 @@ const scriptInput = document.querySelector("#scriptInput");
 const scriptAnalyzeButton = document.querySelector("#scriptAnalyzeButton");
 const copyScriptButton = document.querySelector("#copyScriptButton");
 const downloadScriptButton = document.querySelector("#downloadScriptButton");
-const myChannelInput = document.querySelector("#myChannelInput");
-const templateNameInput = document.querySelector("#templateNameInput");
-const channelTopicInput = document.querySelector("#channelTopicInput");
-const audienceInput = document.querySelector("#audienceInput");
-const toneInput = document.querySelector("#toneInput");
-const avoidInput = document.querySelector("#avoidInput");
-const targetFormatInput = document.querySelector("#targetFormatInput");
-const targetLengthInput = document.querySelector("#targetLengthInput");
-const contentFormatInput = document.querySelector("#contentFormatInput");
-const customFormatField = document.querySelector("#customFormatField");
-const customFormatInput = document.querySelector("#customFormatInput");
-const templateSelect = document.querySelector("#templateSelect");
-const saveTemplateButton = document.querySelector("#saveTemplateButton");
 const saveSessionButton = document.querySelector("#saveSessionButton");
 const loadSessionButton = document.querySelector("#loadSessionButton");
 const saveAuthorInput = document.querySelector("#saveAuthorInput");
 const saveCommentInput = document.querySelector("#saveCommentInput");
 const savedSessionSelect = document.querySelector("#savedSessionSelect");
-const generatePlanButton = document.querySelector("#generatePlanButton");
-const planPanel = document.querySelector("#planPanel");
-const draftEditor = document.querySelector("#draftEditor");
-const draftTitleInput = document.querySelector("#draftTitleInput");
-const scriptStructureInput = document.querySelector("#scriptStructureInput");
-const editablePlanInput = document.querySelector("#editablePlanInput");
-const sourceMaterialInput = document.querySelector("#sourceMaterialInput");
-const generateScriptButton = document.querySelector("#generateScriptButton");
-const scriptDraftPanel = document.querySelector("#scriptDraftPanel");
 const globalInsightButton = document.querySelector("#globalInsightButton");
 const statusMessage = document.querySelector("#statusMessage");
 
@@ -117,15 +95,10 @@ globalInsightButton.addEventListener("click", showGlobalInsights);
 scriptAnalyzeButton.addEventListener("click", analyzeScript);
 copyScriptButton.addEventListener("click", copyScript);
 downloadScriptButton.addEventListener("click", downloadScript);
-generatePlanButton.addEventListener("click", generatePlan);
-generateScriptButton.addEventListener("click", generateScriptDraft);
 exportButton.addEventListener("click", exportJson);
-saveTemplateButton.addEventListener("click", saveTemplate);
-templateSelect.addEventListener("change", loadTemplate);
 saveSessionButton.addEventListener("click", saveSession);
 loadSessionButton.addEventListener("click", loadSession);
 savedSessionSelect.addEventListener("change", previewSavedSession);
-contentFormatInput.addEventListener("change", syncCustomFormatField);
 
 function scoreVideo(video) {
   const viewRatio = video.views / Math.max(video.subscribers, 1);
@@ -412,251 +385,6 @@ async function analyzeScript() {
   `;
 }
 
-async function generatePlan() {
-  const profile = getChannelProfile();
-  const base = selectedVideo || currentResults[0];
-  const reference = getReferenceContext(base);
-  const planText = makePlanText(profile, reference);
-  const titleCandidates = makeTitleCandidates(profile, reference);
-  draftTitleInput.value = titleCandidates[0];
-
-  if (isServerMode()) {
-    generatePlanButton.disabled = true;
-    generatePlanButton.textContent = "AI 기획안 작성 중...";
-    try {
-      const result = await aiRequest("/api/ai/plan", makeAiPayload(profile, reference));
-      planPanel.classList.add("is-visible");
-      planPanel.innerHTML = `
-        <div class="panel-title">
-          <span>AI 기획안</span>
-          <h2>레퍼런스 기반 제작 방향</h2>
-        </div>
-        <pre class="ai-output">${escapeHtml(result)}</pre>
-      `;
-      editablePlanInput.value = result;
-      draftEditor.classList.add("is-visible");
-      return;
-    } catch (error) {
-      statusMessage.textContent = `AI 기획안 생성 실패: ${error.message} 로컬 기획안으로 표시합니다.`;
-    } finally {
-      generatePlanButton.disabled = false;
-      generatePlanButton.textContent = "기획안 만들기";
-    }
-  }
-
-  planPanel.classList.add("is-visible");
-  planPanel.innerHTML = `
-    <div class="plan-card">
-      <h3>레퍼런스 근거</h3>
-      <p>${escapeHtml(reference.summary)}</p>
-    </div>
-    <div class="plan-card">
-      <h3>제목 후보</h3>
-      <p>${titleCandidates.map(escapeHtml).join(" / ")}</p>
-    </div>
-    <div class="plan-card">
-      <h3>추천 구성 방식</h3>
-      <p>${escapeHtml(recommendStructure(profile, reference))}. Step 4에서 다른 구성 방식으로 변경할 수 있습니다.</p>
-    </div>
-    <div class="plan-card">
-      <h3>스크립트 디테일 적용</h3>
-      <p>${escapeHtml(reference.scriptDetails.summary)}</p>
-    </div>
-    <div class="plan-card">
-      <h3>썸네일 방향</h3>
-      <p>${escapeHtml(reference.thumbnailInsight)}</p>
-    </div>
-  `;
-  editablePlanInput.value = planText;
-  draftEditor.classList.add("is-visible");
-}
-
-function getChannelProfile() {
-  return {
-    name: templateNameInput.value.trim(),
-    topic: channelTopicInput.value.trim(),
-    audience: audienceInput.value.trim(),
-    tone: toneInput.value.trim(),
-    avoid: avoidInput.value.trim(),
-    format: targetFormatInput.value,
-    length: targetLengthInput.value,
-    contentFormat: contentFormatInput.value === "기타" ? customFormatInput.value.trim() || "기타" : contentFormatInput.value,
-    contentFormatPreset: contentFormatInput.value,
-    customFormat: customFormatInput.value.trim(),
-    memo: myChannelInput.value.trim(),
-  };
-}
-
-function setChannelProfile(profile) {
-  templateNameInput.value = profile.name || "";
-  channelTopicInput.value = profile.topic || "";
-  audienceInput.value = profile.audience || "";
-  toneInput.value = profile.tone || "";
-  avoidInput.value = profile.avoid || "";
-  targetFormatInput.value = profile.format || "롱폼";
-  targetLengthInput.value = profile.length || "8-12분";
-  contentFormatInput.value = profile.contentFormatPreset || (profile.contentFormat === "기타" ? "기타" : profile.contentFormat) || "분석/해설";
-  customFormatInput.value = profile.customFormat || "";
-  syncCustomFormatField();
-  myChannelInput.value = profile.memo || "";
-}
-
-function formatProfile(profile) {
-  const parts = [
-    profile.name || "내 채널",
-    profile.topic && `주제: ${profile.topic}`,
-    profile.audience && `타깃: ${profile.audience}`,
-    profile.tone && `톤: ${profile.tone}`,
-    profile.avoid && `피할 것: ${profile.avoid}`,
-    profile.format && `유형: ${profile.format}`,
-    profile.contentFormat && `포맷: ${profile.contentFormat}`,
-    profile.length && `길이: ${profile.length}`,
-  ].filter(Boolean);
-  return parts.join(" / ");
-}
-
-function makePlanText(profile, reference) {
-  return [
-    `채널: ${profile.name || "내 채널"}`,
-    `주제: ${profile.topic || "미정"}`,
-    `타깃: ${profile.audience || "미정"}`,
-    `톤앤매너: ${profile.tone || "미정"}`,
-    `영상 길이 유형: ${profile.format}`,
-    `콘텐츠 포맷: ${profile.contentFormat}`,
-    `목표 길이: ${profile.length}`,
-    `피하고 싶은 스타일: ${profile.avoid || "없음"}`,
-    "",
-    `[레퍼런스 영상]`,
-    `제목: ${reference.title}`,
-    `채널: ${reference.channel}`,
-    `성과 신호: ${reference.metrics}`,
-    `추정 성공 패턴: ${reference.pattern}`,
-    `썸네일 참고점: ${reference.thumbnailInsight}`,
-    `스크립트 디테일: ${reference.scriptDetails.summary}`,
-    "",
-    `[내 채널 변환 방향]`,
-    `아이템 방향: 레퍼런스의 "${reference.corePromise}" 구조를 ${profile.topic || "내 주제"}와 ${profile.audience || "내 시청자"} 상황에 맞게 변환한다.`,
-    `제목 방향: ${reference.titleFormula}`,
-    "썸네일 방향: 제목을 반복하지 말고 전후 대비, 결과물, 금지/실수 신호 중 하나로 압축한다.",
-    `디테일 적용 방향: ${reference.scriptDetails.application}`,
-    "",
-    `[추천 구성]`,
-    `${recommendStructure(profile, reference)}`,
-    "최종 구성 방식은 Step 4에서 선택하며, 심화분석 결과는 특정 구성법에 종속되지 않는다.",
-    `추가 메모: ${profile.memo || "없음"}`,
-  ].join("\n");
-}
-
-function makeRecommendedTitle(profile, titleSeed) {
-  const audience = profile.audience || "내 시청자";
-  const topic = profile.topic || "이 주제";
-  if (profile.length === "60초 이하" || profile.format === "숏츠") {
-    return `${audience}가 바로 써먹는 ${topic} 한 가지`;
-  }
-  if (titleSeed.includes("이유")) {
-    return `${topic}이 생각보다 잘 안 되는 진짜 이유`;
-  }
-  return `${audience}를 위한 ${topic} 현실 적용법`;
-}
-
-function makeTitleCandidates(profile, reference) {
-  const audience = profile.audience || "내 시청자";
-  const topic = profile.topic || "내 주제";
-  const core = reference.corePromise || "성과가 난 패턴";
-  return [
-    `${audience}를 위한 ${topic} 현실 적용법`,
-    `${core}을 ${topic}에 적용하면 달라지는 것`,
-    `${reference.titleFormula}로 다시 만든 ${topic} 콘텐츠`,
-  ];
-}
-
-async function generateScriptDraft() {
-  const profile = getChannelProfile();
-  const base = selectedVideo || currentResults[0];
-  const reference = getReferenceContext(base);
-  const title = draftTitleInput.value.trim() || makeTitleCandidates(profile, reference)[0];
-  const materials = sourceMaterialInput.value.trim();
-  const structure = resolveScriptStructure(profile, reference);
-  const sourceSentences = reference.scriptSentences;
-  const materialSentences = splitSentences(materials);
-  const draftSentences = uniqueSentences([...sourceSentences, ...materialSentences]);
-
-  if (isServerMode() && sourceSentences.length) {
-    generateScriptButton.disabled = true;
-    generateScriptButton.textContent = "AI 스크립트 작성 중...";
-    try {
-      const result = await aiRequest("/api/ai/script", makeAiPayload(profile, reference, {
-        title,
-        structure,
-        plan: editablePlanInput.value.trim(),
-        materials,
-      }));
-      showFinalDraft(result);
-      return;
-    } catch (error) {
-      statusMessage.textContent = `AI 스크립트 생성 실패: ${error.message} 원문 편집 초안으로 표시합니다.`;
-    } finally {
-      generateScriptButton.disabled = false;
-      generateScriptButton.textContent = "스크립트 초안 만들기";
-    }
-  }
-
-  if (!draftSentences.length) {
-    scriptDraftPanel.classList.add("is-visible");
-    scriptDraftPanel.innerHTML = `
-      <div class="panel-title">
-        <span>초안 생성 불가</span>
-        <h2>레퍼런스 스크립트가 필요합니다</h2>
-      </div>
-      <p>내용이 없는 가짜 스크립트를 만들지 않도록 중단했습니다. Step 2에 레퍼런스 스크립트를 붙여넣은 뒤 다시 시도하세요.</p>
-    `;
-    return;
-  }
-
-  const draft = [
-    `제목: ${title}`,
-    "",
-    ...buildScriptSections(structure, draftSentences),
-  ].join("\n");
-
-  showFinalDraft(draft);
-}
-
-function showFinalDraft(draft) {
-  scriptDraftPanel.classList.add("is-visible");
-  scriptDraftPanel.innerHTML = `
-    <div class="panel-title">
-      <span>초안</span>
-      <h2>편집 가능한 스크립트</h2>
-    </div>
-    <div class="save-actions">
-      <button id="copyDraftButton" class="ghost-button" type="button">초안 복사</button>
-      <button id="downloadDraftButton" class="ghost-button" type="button">초안 다운로드</button>
-    </div>
-    <textarea id="finalScriptDraft" class="script-draft">${escapeHtml(draft)}</textarea>
-  `;
-  document.querySelector("#copyDraftButton").addEventListener("click", copyDraft);
-  document.querySelector("#downloadDraftButton").addEventListener("click", downloadDraft);
-}
-
-function makeAiPayload(profile, reference, overrides = {}) {
-  return {
-    profile,
-    reference: {
-      title: reference.title,
-      channel: reference.channel,
-      metrics: reference.metrics,
-      titleFormula: reference.titleFormula,
-      thumbnailInsight: reference.thumbnailInsight,
-    },
-    script: scriptInput.value.trim(),
-    title: overrides.title || draftTitleInput.value.trim(),
-    structure: overrides.structure || scriptStructureInput.value,
-    plan: overrides.plan || editablePlanInput.value.trim(),
-    materials: overrides.materials || sourceMaterialInput.value.trim(),
-  };
-}
-
 async function aiRequest(path, payload) {
   const response = await fetch(path, {
     method: "POST",
@@ -666,113 +394,6 @@ async function aiRequest(path, payload) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "AI 요청에 실패했습니다.");
   return data.result;
-}
-
-function recommendStructure(profile, reference) {
-  const context = `${profile.topic} ${profile.contentFormat} ${reference.title}`.toLowerCase();
-  if (/괴담|미스터리|공포|사건|실화|범죄|스토리/.test(context)) {
-    return "스토리텔링/괴담: 이상 징후 → 배경과 단서 → 긴장 상승 → 핵심 사건 → 해석과 여운";
-  }
-  if (/다큐|역사|사건 재구성/.test(context)) {
-    return "다큐멘터리/사건 재구성: 핵심 장면 → 배경 → 시간순 사건 → 쟁점 → 현재적 의미";
-  }
-  if (/튜토리얼|따라하기|방법/.test(context)) {
-    return "튜토리얼: 결과 예고 → 준비 → 단계별 실행 → 흔한 실수 → 완성 결과";
-  }
-  if (/리스트|체크리스트/.test(context)) {
-    return "리스트형: 선정 기준 → 항목별 설명 → 우선순위 → 요약";
-  }
-  return "문제 해결형: 문제 상황 → 원인 → 핵심 인사이트 → 적용 방법 → 정리";
-}
-
-function resolveScriptStructure(profile, reference) {
-  if (scriptStructureInput.value !== "자동 추천") return scriptStructureInput.value;
-  const recommended = recommendStructure(profile, reference);
-  if (recommended.startsWith("스토리텔링/괴담")) return "스토리텔링/괴담";
-  if (recommended.startsWith("다큐멘터리")) return "다큐멘터리/사건 재구성";
-  if (recommended.startsWith("튜토리얼")) return "튜토리얼";
-  if (recommended.startsWith("리스트형")) return "리스트형";
-  return "문제 해결형";
-}
-
-function buildScriptSections(structure, sourceSentences) {
-  const labels = getStructureLabels(structure);
-  const chunks = divideSentences(sourceSentences, labels.length);
-  const output = [];
-
-  chunks.forEach((chunk, index) => {
-    if (!chunk.length) return;
-    output.push(`[${labels[index]}]`);
-    output.push(joinAsParagraphs(chunk));
-    output.push("");
-  });
-
-  return output;
-}
-
-function getStructureLabels(structure) {
-  const labels = {
-    "스토리텔링/괴담": ["콜드 오픈", "배경과 인물", "단서와 긴장 상승", "핵심 사건", "결말과 여운"],
-    "다큐멘터리/사건 재구성": ["핵심 장면", "배경", "사건 전개", "쟁점", "결말"],
-    "문제 해결형": ["문제 상황", "원인", "핵심 내용", "해결 과정", "정리"],
-    튜토리얼: ["결과 예고", "준비", "실행 과정", "주의점", "완성"],
-    리스트형: ["도입", "항목 1", "항목 2", "항목 3", "정리"],
-    "5-set": ["SET 1", "SET 2", "SET 3", "SET 4", "SET 5"],
-    "자유 구성": ["도입", "전개 1", "전개 2", "전개 3", "마무리"],
-  };
-  return labels[structure] || labels["자유 구성"];
-}
-
-function divideSentences(sentences, sectionCount) {
-  const chunks = Array.from({ length: Math.min(sectionCount, sentences.length) }, () => []);
-  sentences.forEach((sentence, index) => {
-    const chunkIndex = Math.min(Math.floor((index / sentences.length) * chunks.length), chunks.length - 1);
-    chunks[chunkIndex].push(sentence);
-  });
-  return chunks;
-}
-
-function joinAsParagraphs(sentences) {
-  const paragraphs = [];
-  for (let index = 0; index < sentences.length; index += 3) {
-    paragraphs.push(sentences.slice(index, index + 3).join(" "));
-  }
-  return paragraphs.join("\n\n");
-}
-
-function getReferenceContext(video) {
-  if (!video) {
-    return {
-      title: "선택한 레퍼런스 영상",
-      channel: "레퍼런스 채널",
-      metrics: "아직 선택된 레퍼런스 지표가 없습니다.",
-      pattern: "성과가 난 주제/제목/썸네일 구조를 먼저 선택해야 합니다.",
-      thumbnailInsight: "썸네일 분석을 위해 레퍼런스 영상을 선택하세요.",
-      scriptDetails: emptyScriptDetails(),
-      scriptSentences: [],
-      corePromise: "성과가 난 패턴",
-      titleFormula: "문제와 결과를 선명하게 제시하는 제목",
-      summary: "아직 선택된 레퍼런스 영상이 없습니다.",
-    };
-  }
-  const score = video.score || scoreVideo(video);
-  const titleFormula = inferTitleFormula(video.title);
-  const pattern = inferReferencePattern(video, score);
-  const thumbnailInsight = getThumbnailInsight(video);
-  const scriptText = scriptInput.value.trim();
-  const scriptDetails = extractScriptDetails(scriptText);
-  return {
-    title: video.title,
-    channel: video.channel,
-    metrics: `성과점수 ${score.total}점, 조회/구독자 ${score.viewRatio.toFixed(1)}배, 좋아요율 ${percent(score.likeRate)}, 댓글율 ${percent(score.commentRate)}`,
-    pattern,
-    thumbnailInsight,
-    scriptDetails,
-    scriptSentences: splitSentences(scriptText),
-    corePromise: inferCorePromise(video.title),
-    titleFormula,
-    summary: `"${video.title}"은 ${video.channel} 채널에서 ${score.viewRatio.toFixed(1)}배 조회/구독자 비율을 만든 레퍼런스입니다. ${pattern}`,
-  };
 }
 
 function extractScriptDetails(text) {
@@ -946,49 +567,6 @@ function firstLine(text) {
   return text.split(/\n|[.!?。！？]/).map((item) => item.trim()).filter(Boolean)[0] || "";
 }
 
-function syncCustomFormatField() {
-  customFormatField.classList.toggle("is-visible", contentFormatInput.value === "기타");
-}
-
-function copyDraft() {
-  const draft = document.querySelector("#finalScriptDraft")?.value.trim() || "";
-  const button = document.querySelector("#copyDraftButton");
-  if (!draft) {
-    button.textContent = "내용 없음";
-    setTimeout(() => {
-      button.textContent = "초안 복사";
-    }, 1400);
-    return;
-  }
-  navigator.clipboard?.writeText(draft);
-  button.textContent = "복사됨";
-  setTimeout(() => {
-    button.textContent = "초안 복사";
-  }, 1400);
-}
-
-function downloadDraft() {
-  const draft = document.querySelector("#finalScriptDraft")?.value.trim() || "";
-  const button = document.querySelector("#downloadDraftButton");
-  if (!draft) {
-    button.textContent = "내용 없음";
-    setTimeout(() => {
-      button.textContent = "초안 다운로드";
-    }, 1400);
-    return;
-  }
-  const blob = new Blob([draft], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  const safeName = (templateNameInput.value || "script-draft").replace(/[\\/:*?"<>|]/g, "").slice(0, 48);
-  link.href = url;
-  link.download = `${safeName || "script-draft"}-초안.txt`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
 function copyScript() {
   const text = scriptInput.value.trim();
   if (!text) {
@@ -1026,50 +604,6 @@ function downloadScript() {
   URL.revokeObjectURL(url);
 }
 
-function saveTemplate() {
-  const profile = getChannelProfile();
-  if (!profile.name) {
-    saveTemplateButton.textContent = "이름 필요";
-    setTimeout(() => {
-      saveTemplateButton.textContent = "채널 설정 저장";
-    }, 1400);
-    return;
-  }
-  const templates = getTemplates();
-  templates[profile.name] = profile;
-  localStorage.setItem("referenceSignalTemplates", JSON.stringify(templates));
-  renderTemplateOptions(profile.name);
-  saveTemplateButton.textContent = "저장됨";
-  setTimeout(() => {
-    saveTemplateButton.textContent = "채널 설정 저장";
-  }, 1400);
-}
-
-function loadTemplate() {
-  const name = templateSelect.value;
-  if (!name) return;
-  const templates = getTemplates();
-  if (templates[name]) {
-    setChannelProfile(templates[name]);
-  }
-}
-
-function getTemplates() {
-  try {
-    return JSON.parse(localStorage.getItem("referenceSignalTemplates") || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function renderTemplateOptions(selectedName = "") {
-  const templates = getTemplates();
-  const names = Object.keys(templates).sort((a, b) => a.localeCompare(b, "ko"));
-  templateSelect.innerHTML = `<option value="">채널 불러오기</option>${names
-    .map((name) => `<option value="${escapeHtml(name)}" ${name === selectedName ? "selected" : ""}>${escapeHtml(name)}</option>`)
-    .join("")}`;
-}
-
 function saveSession() {
   const author = saveAuthorInput.value.trim();
   const comment = saveCommentInput.value.trim();
@@ -1090,11 +624,6 @@ function saveSession() {
     period: periodFilter.value,
     type: selectedType,
     script: scriptInput.value,
-    draftTitle: draftTitleInput.value,
-    scriptStructure: scriptStructureInput.value,
-    editablePlan: editablePlanInput.value,
-    sourceMaterial: sourceMaterialInput.value,
-    profile: getChannelProfile(),
     savedAt: new Date().toISOString(),
   };
   const sessions = getSavedSessions();
@@ -1131,12 +660,6 @@ function loadSession() {
       button.classList.toggle("is-active", button.dataset.type === selectedType);
     });
     scriptInput.value = session.script || "";
-    draftTitleInput.value = session.draftTitle || "";
-    scriptStructureInput.value = session.scriptStructure || "자동 추천";
-    editablePlanInput.value = session.editablePlan || "";
-    sourceMaterialInput.value = session.sourceMaterial || "";
-    setChannelProfile(session.profile || {});
-    draftEditor.classList.toggle("is-visible", Boolean(session.editablePlan || session.sourceMaterial));
     runAnalysis();
     loadSessionButton.textContent = "불러옴";
     setTimeout(() => {
@@ -1242,8 +765,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-renderTemplateOptions();
 renderSavedSessionOptions();
-syncCustomFormatField();
 renderMetrics([]);
 renderResults([]);

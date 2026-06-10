@@ -65,8 +65,6 @@ async function handleAi(request, response, pathname) {
   const body = await readBody(request);
   const tasks = {
     "/api/ai/summary": buildSummaryPrompt,
-    "/api/ai/plan": buildPlanPrompt,
-    "/api/ai/script": buildScriptPrompt,
   };
   const buildPrompt = tasks[pathname];
   if (!buildPrompt) return sendJson(response, 404, { error: "AI task not found" });
@@ -91,70 +89,6 @@ function buildSummaryPrompt(body) {
     input: `다음 스크립트를 한글로 요약하세요.\n\n${limitText(body.script, 100000)}`,
     maxOutputTokens: 1800,
   };
-}
-
-function buildPlanPrompt(body) {
-  return {
-    instructions: [
-      "You are a YouTube content strategist who works across all genres.",
-      "Create an original production plan grounded in the reference video and transcript.",
-      "Use relevant factual details and successful structural techniques, but do not copy distinctive wording.",
-      "Fit the target channel, audience, genre, format, and desired duration.",
-      "Write in Korean. Return a practical plan, not instructions about how to write a plan.",
-      "Include: 아이템 정의, 레퍼런스에서 가져올 요소, 새 영상의 관점, 구성안, 제목 후보 3개, 썸네일 방향, 추가 조사 필요사항.",
-    ].join("\n"),
-    input: makeAiContext(body),
-    maxOutputTokens: 3000,
-  };
-}
-
-function buildScriptPrompt(body) {
-  return {
-    instructions: [
-      "You are an experienced YouTube scriptwriter.",
-      "Write a complete, ready-to-read original script in Korean.",
-      "The result must be actual narration/dialogue, not a plan, outline, writing advice, or commentary about the reference.",
-      "Use the reference transcript's relevant facts, details, event sequence, and narrative techniques.",
-      "Do not copy distinctive wording or claim unsupported facts. Preserve uncertainty where the source is uncertain.",
-      "Follow the requested structure and target duration. Use natural paragraphs and section headings only when useful.",
-      "Do not mention performance scores, reference analysis, prompts, or that this script was generated from another video.",
-    ].join("\n"),
-    input: makeAiContext(body),
-    maxOutputTokens: 9000,
-  };
-}
-
-function makeAiContext(body) {
-  const profile = body.profile || {};
-  const reference = body.reference || {};
-  return [
-    "[목표 채널]",
-    `채널명: ${profile.name || "미정"}`,
-    `주제: ${profile.topic || "미정"}`,
-    `타깃: ${profile.audience || "미정"}`,
-    `톤앤매너: ${profile.tone || "미정"}`,
-    `피할 스타일: ${profile.avoid || "없음"}`,
-    `영상 유형: ${profile.format || "미정"}`,
-    `콘텐츠 포맷: ${profile.contentFormat || "미정"}`,
-    `목표 길이: ${profile.length || "미정"}`,
-    `추가 메모: ${profile.memo || "없음"}`,
-    "",
-    "[제작 요청]",
-    `제목: ${body.title || "추천 필요"}`,
-    `구성 방식: ${body.structure || "자동 추천"}`,
-    `사용자가 수정한 기획안: ${limitText(body.plan, 20000) || "없음"}`,
-    `추가 자료: ${limitText(body.materials, 50000) || "없음"}`,
-    "",
-    "[레퍼런스 영상]",
-    `제목: ${reference.title || "미정"}`,
-    `채널: ${reference.channel || "미정"}`,
-    `성과 신호: ${reference.metrics || "없음"}`,
-    `제목 구조: ${reference.titleFormula || "없음"}`,
-    `썸네일 참고점: ${reference.thumbnailInsight || "없음"}`,
-    "",
-    "[레퍼런스 스크립트 원문]",
-    limitText(body.script, 100000) || "없음",
-  ].join("\n");
 }
 
 async function openaiResponse({ instructions, input, maxOutputTokens }) {

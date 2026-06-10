@@ -1,6 +1,6 @@
 # Reference Signal
 
-레퍼런스 유튜브 채널의 최근 영상 성과를 분석하고, 인사이트와 기획/스크립트 초안으로 이어주는 내부 웹앱입니다.
+레퍼런스 유튜브 채널의 최근 영상 성과를 분석하고, 개별 영상의 스크립트를 한글로 요약하는 내부 웹앱입니다.
 
 ## 로컬 실행
 
@@ -18,7 +18,7 @@ npm start
 1. GitHub 저장소에 이 폴더를 push합니다.
 2. Railway에서 `New Project` → `Deploy from GitHub repo`를 선택합니다.
 3. Variables에 `YOUTUBE_API_KEY`를 추가합니다.
-4. AI 분석/기획/스크립트 생성을 위해 `OPENAI_API_KEY`를 추가합니다.
+4. AI 스크립트 한글 요약을 위해 `OPENAI_API_KEY`를 추가합니다.
 5. 선택적으로 `OPENAI_MODEL`을 추가합니다. 기본값은 `gpt-5.5`입니다.
 6. Railway가 `npm start`로 앱을 실행합니다.
 7. tools.qpola.net의 링크 모음에 Railway 배포 URL을 추가합니다.
